@@ -3,6 +3,7 @@
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { changedPageIds, serializeDesign } from "@/lib/constructor/unsaved-changes";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -43,6 +44,35 @@ export default function ConstructorPage() {
 
   // Store Builder State
   const [storeConfig, setStoreConfig] = useState<any>(null);
+  const [savedDesign, setSavedDesign] = useState<string | null>(null);
+  const hasUnsavedChanges = storeConfig !== null && savedDesign !== null && serializeDesign(storeConfig) !== savedDesign;
+  const dirtyPageIds = changedPageIds(storeConfig?.pages ?? [], savedDesign);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const onLinkClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!(link instanceof HTMLAnchorElement) || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
+      const destination = new URL(link.href, window.location.href);
+      if (destination.pathname === window.location.pathname && destination.search === window.location.search && destination.origin === window.location.origin) return;
+      if (!window.confirm("Tienes cambios sin guardar. ¿Quieres salir y descartarlos?")) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    document.addEventListener("click", onLinkClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      document.removeEventListener("click", onLinkClick, true);
+    };
+  }, [hasUnsavedChanges]);
+
   const [selectedSectionId, setSelectedSectionId] = useState<string>("announcement");
   const [leftTab, setLeftTab] = useState<"sections" | "theme">("sections");
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
@@ -68,6 +98,7 @@ export default function ConstructorPage() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   const navigateWithTransition = (href: string) => {
+    if (hasUnsavedChanges && !window.confirm("Tienes cambios sin guardar. ¿Quieres salir y descartarlos?")) return;
     if (typeof document !== "undefined" && (document as any).startViewTransition) {
       (document as any).startViewTransition(() => {
         router.push(href);
@@ -255,6 +286,7 @@ export default function ConstructorPage() {
       }
 
       setStoreConfig(config);
+      setSavedDesign(serializeDesign(config));
       setActivePageId(config.currentPageId || "home");
     }
   }, [activeStore]);
@@ -727,11 +759,13 @@ export default function ConstructorPage() {
   };
 
   const handlePublishConfig = async () => {
-    if (!token || !activeStore || !storeConfig) return;
+    if (!token || !activeStore || !storeConfig || isPublishingConfig) return;
     setIsPublishingConfig(true);
     try {
-      const updated = await actualizarConfiguracionVisual(token, storeConfig);
-      setActiveStore(updated);
+      const submittedDesign = serializeDesign(storeConfig);
+      await actualizarConfiguracionVisual(token, storeConfig);
+      // Only mark the submitted content as saved; retain edits made during the request.
+      setSavedDesign(submittedDesign);
       toast.success("¡Plantilla visual publicada y guardada con éxito!");
     } catch (err) {
       console.error(err);
@@ -810,7 +844,7 @@ export default function ConstructorPage() {
                       className="bg-transparent text-xs font-bold text-slate-200 border-none outline-none cursor-pointer font-sans"
                     >
                       {storeConfig.pages.map((p: any) => (
-                        <option key={p.id} value={p.id} className="bg-slate-955 text-slate-200 font-semibold">{p.name}</option>
+                        <option key={p.id} value={p.id} className="bg-slate-955 text-slate-200 font-semibold">{p.name}{dirtyPageIds.has(p.id) ? " ● (sin guardar)" : ""}</option>
                       ))}
                     </select>
                   </div>
@@ -895,6 +929,10 @@ export default function ConstructorPage() {
                     <span>Ver Tienda (Live)</span>
                   </a>
 
+                  <span role="status" className={`flex items-center gap-2 text-xs font-semibold ${hasUnsavedChanges ? "text-amber-400" : "text-slate-400"}`}>
+                    {hasUnsavedChanges && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-amber-400" />}
+                    {hasUnsavedChanges ? "Cambios sin guardar" : "Sin cambios pendientes"}
+                  </span>
                   <button
                     onClick={handlePublishConfig}
                     disabled={isPublishingConfig}
@@ -919,6 +957,7 @@ export default function ConstructorPage() {
               <div className="flex flex-1 gap-6 overflow-hidden min-h-0">
                 {/* 1. LEFT PANEL */}
                 <ConstructorLeftPanel
+                  dirtyPageIds={dirtyPageIds}
                   storeConfig={storeConfig}
                   setStoreConfig={setStoreConfig}
                   activePageId={activePageId}
