@@ -2,7 +2,7 @@
 
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -17,14 +17,21 @@ import {
   Store,
   ChevronDown,
   Sliders,
-  Settings
+  Settings,
+  Undo2,
+  Redo2
 } from "lucide-react";
 import {
   getTiendas,
   type TiendaDto,
   actualizarConfiguracionVisual,
-  getIntegraciones
+  getIntegraciones,
+  getConfiguracionHistorial,
+  guardarConfiguracionDraft,
+  restaurarConfiguracion,
+  type ConfiguracionHistorialDto
 } from "@/lib/api/admin";
+import { useStoreBuilderHistory } from "@/hooks/useStoreBuilderHistory";
 
 // Import modular constructor components
 import { ConstructorLeftPanel } from "@/components/features/portal/constructor/ConstructorLeftPanel";
@@ -42,7 +49,19 @@ export default function ConstructorPage() {
   const [activeStore, setActiveStore] = useState<TiendaDto | null>(null);
 
   // Store Builder State
-  const [storeConfig, setStoreConfig] = useState<any>(null);
+  const historyApi = useStoreBuilderHistory<any>();
+  const {
+    configuracion: storeConfig,
+    setConfiguracion: setStoreConfig,
+    reset: resetHistory,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = historyApi;
+  const [persistedHistory, setPersistedHistory] = useState<ConfiguracionHistorialDto[]>([]);
+  const initializedConfig = useRef(false);
+  const deviceId = useRef("");
   const [selectedSectionId, setSelectedSectionId] = useState<string>("announcement");
   const [leftTab, setLeftTab] = useState<"sections" | "theme">("sections");
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
@@ -254,10 +273,52 @@ export default function ConstructorPage() {
         };
       }
 
-      setStoreConfig(config);
+      resetHistory(config);
+      initializedConfig.current = false;
       setActivePageId(config.currentPageId || "home");
     }
-  }, [activeStore]);
+  }, [activeStore, resetHistory]);
+
+  useEffect(() => {
+    if (!token || !activeStore) return;
+    void getConfiguracionHistorial(token).then((response) => setPersistedHistory(response.history))
+      .catch((error) => console.error("No se pudo cargar el historial", error));
+  }, [token, activeStore]);
+
+  useEffect(() => {
+    if (!storeConfig || !token || !activeStore) return;
+    if (!initializedConfig.current) {
+      initializedConfig.current = true;
+      return;
+    }
+    if (!deviceId.current) {
+      deviceId.current = localStorage.getItem("store-builder-device-id") || crypto.randomUUID();
+      localStorage.setItem("store-builder-device-id", deviceId.current);
+    }
+    const timer = window.setTimeout(() => {
+      void guardarConfiguracionDraft(token, storeConfig, deviceId.current)
+        .then(() => getConfiguracionHistorial(token))
+        .then((response) => setPersistedHistory(response.history))
+        .catch((error) => console.error("No se pudo guardar el borrador", error));
+    }, 30000);
+    return () => window.clearTimeout(timer);
+  }, [storeConfig, token, activeStore]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      if (event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        event.shiftKey ? redo() : undo();
+      }
+      if (event.key.toLowerCase() === "y") {
+        event.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [undo, redo]);
 
   const handlePropertyChange = (property: string, value: any) => {
     if (!storeConfig) return;
@@ -741,6 +802,22 @@ export default function ConstructorPage() {
     }
   };
 
+  const handleRestoreVersion = async (version: number) => {
+    if (!token || !version) return;
+    try {
+      const updated = await restaurarConfiguracion(token, version);
+      const config = JSON.parse(updated.configuracionVisual);
+      resetHistory(config);
+      setActiveStore(updated);
+      const response = await getConfiguracionHistorial(token);
+      setPersistedHistory(response.history);
+      toast.success(`Versión ${version} restaurada.`);
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo restaurar la versión seleccionada.");
+    }
+  };
+
   if (!isHydrated || !usuario) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#081018] text-white gap-3">
@@ -883,6 +960,33 @@ export default function ConstructorPage() {
                       <Smartphone size={16} />
                     </button>
                   </div>
+
+                  <div className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1">
+                    <button onClick={undo} disabled={!canUndo} title="Deshacer (Ctrl/Cmd+Z)" className="p-2 rounded-lg text-slate-300 hover:text-white disabled:opacity-40">
+                      <Undo2 size={16} />
+                    </button>
+                    <button onClick={redo} disabled={!canRedo} title="Rehacer (Ctrl/Cmd+Y)" className="p-2 rounded-lg text-slate-300 hover:text-white disabled:opacity-40">
+                      <Redo2 size={16} />
+                    </button>
+                  </div>
+
+                  <select
+                    aria-label="Restaurar una versión guardada"
+                    defaultValue=""
+                    onChange={(event) => {
+                      const version = Number(event.target.value);
+                      if (version) void handleRestoreVersion(version);
+                      event.currentTarget.value = "";
+                    }}
+                    className="h-10 max-w-40 rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs text-slate-200"
+                  >
+                    <option value="">Historial</option>
+                    {persistedHistory.map((item) => (
+                      <option key={item.version} value={item.version}>
+                        Versión {item.version}
+                      </option>
+                    ))}
+                  </select>
 
                   <a
                     href={activeStore?.slug ? `https://${activeStore.slug}.${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "dmhub.fun"}` : `/preview/${activeStore?.id}`}

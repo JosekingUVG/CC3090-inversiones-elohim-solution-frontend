@@ -564,3 +564,55 @@ export async function actualizarConfiguracionVisual(
     "No se pudo guardar la configuración visual de la tienda"
   );
 }
+
+export type ConfiguracionHistorialDto = {
+  version: number;
+  timestamp: string;
+  usuarioId: string;
+  dispositivo: string;
+  config: Record<string, unknown>;
+};
+
+export type HistorialConfiguracionResponse = {
+  history: ConfiguracionHistorialDto[];
+  maxVersion: number;
+};
+
+export async function guardarConfiguracionDraft(
+  token: string,
+  configuracion: Record<string, unknown>,
+  dispositivo: string,
+) {
+  return apiRequest(
+    "/api/v1/tiendas/configuracion/draft",
+    {
+      method: "POST",
+      headers: buildAuthHeaders(token),
+      body: JSON.stringify({ configuracion, dispositivo }),
+    },
+    "No se pudo guardar el borrador de la configuración",
+  );
+}
+
+export async function getConfiguracionHistorial(
+  token: string,
+  limit = 50,
+  offset = 0,
+): Promise<HistorialConfiguracionResponse> {
+  return apiRequest<HistorialConfiguracionResponse>(
+    `/api/v1/tiendas/configuracion/historial?limit=${limit}&offset=${offset}`,
+    { method: "GET", headers: buildAuthHeaders(token) },
+    "No se pudo obtener el historial de configuración",
+  );
+}
+
+export async function restaurarConfiguracion(
+  token: string,
+  version: number,
+): Promise<TiendaDto> {
+  return apiRequest<TiendaDto>(
+    `/api/v1/tiendas/configuracion/restore/${version}`,
+    { method: "POST", headers: buildAuthHeaders(token) },
+    "No se pudo restaurar la versión seleccionada",
+  );
+}
