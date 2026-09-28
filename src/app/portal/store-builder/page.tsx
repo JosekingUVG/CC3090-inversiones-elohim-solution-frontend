@@ -19,7 +19,8 @@ import {
   Sliders,
   Settings,
   Undo2,
-  Redo2
+  Redo2,
+  History
 } from "lucide-react";
 import {
   getTiendas,
@@ -37,6 +38,7 @@ import { useStoreBuilderHistory } from "@/hooks/useStoreBuilderHistory";
 import { ConstructorLeftPanel } from "@/components/features/portal/constructor/ConstructorLeftPanel";
 import { ConstructorPreview } from "@/components/features/portal/constructor/ConstructorPreview";
 import { ConstructorRightPanel } from "@/components/features/portal/constructor/ConstructorRightPanel";
+import { HistoryPanel } from "@/components/features/portal/constructor/HistoryPanel";
 
 export default function ConstructorPage() {
   const usuario = useAuthStore((state) => state.usuario);
@@ -60,6 +62,9 @@ export default function ConstructorPage() {
     canRedo,
   } = historyApi;
   const [persistedHistory, setPersistedHistory] = useState<ConfiguracionHistorialDto[]>([]);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+  const [selectedHistoryVersion, setSelectedHistoryVersion] = useState<ConfiguracionHistorialDto | null>(null);
+  const [isRestoringVersion, setIsRestoringVersion] = useState(false);
   const initializedConfig = useRef(false);
   const deviceId = useRef("");
   const [selectedSectionId, setSelectedSectionId] = useState<string>("announcement");
@@ -85,6 +90,7 @@ export default function ConstructorPage() {
   }>({ cloudName: "", apiKey: "", hasCredentials: false });
 
   const [isHydrated, setIsHydrated] = useState(false);
+  const previewConfig = selectedHistoryVersion?.config ?? storeConfig;
 
   const navigateWithTransition = (href: string) => {
     if (typeof document !== "undefined" && (document as any).startViewTransition) {
@@ -300,7 +306,7 @@ export default function ConstructorPage() {
         .then(() => getConfiguracionHistorial(token))
         .then((response) => setPersistedHistory(response.history))
         .catch((error) => console.error("No se pudo guardar el borrador", error));
-    }, 30000);
+    }, 5000);
     return () => window.clearTimeout(timer);
   }, [storeConfig, token, activeStore]);
 
@@ -804,6 +810,7 @@ export default function ConstructorPage() {
 
   const handleRestoreVersion = async (version: number) => {
     if (!token || !version) return;
+    setIsRestoringVersion(true);
     try {
       const updated = await restaurarConfiguracion(token, version);
       const config = JSON.parse(updated.configuracionVisual);
@@ -811,10 +818,14 @@ export default function ConstructorPage() {
       setActiveStore(updated);
       const response = await getConfiguracionHistorial(token);
       setPersistedHistory(response.history);
+      setSelectedHistoryVersion(null);
+      setShowHistoryPanel(false);
       toast.success(`Versión ${version} restaurada.`);
     } catch (error) {
       console.error(error);
       toast.error("No se pudo restaurar la versión seleccionada.");
+    } finally {
+      setIsRestoringVersion(false);
     }
   };
 
@@ -970,23 +981,13 @@ export default function ConstructorPage() {
                     </button>
                   </div>
 
-                  <select
-                    aria-label="Restaurar una versión guardada"
-                    defaultValue=""
-                    onChange={(event) => {
-                      const version = Number(event.target.value);
-                      if (version) void handleRestoreVersion(version);
-                      event.currentTarget.value = "";
-                    }}
-                    className="h-10 max-w-40 rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs text-slate-200"
+                  <button
+                    onClick={() => setShowHistoryPanel(true)}
+                    className="flex h-10 items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-4 text-xs font-bold text-slate-200 transition hover:border-slate-600 hover:text-white"
                   >
-                    <option value="">Historial</option>
-                    {persistedHistory.map((item) => (
-                      <option key={item.version} value={item.version}>
-                        Versión {item.version}
-                      </option>
-                    ))}
-                  </select>
+                    <History size={15} className="text-[#38BDF8]" />
+                    Historial
+                  </button>
 
                   <a
                     href={activeStore?.slug ? `https://${activeStore.slug}.${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "dmhub.fun"}` : `/preview/${activeStore?.id}`}
@@ -1055,7 +1056,7 @@ export default function ConstructorPage() {
 
                 {/* 2. CENTER PANEL (SIMULATOR VIEW) */}
                 <ConstructorPreview
-                  storeConfig={storeConfig}
+                  storeConfig={previewConfig}
                   activePageId={activePageId}
                   setActivePageId={setActivePageId}
                   selectedSectionId={selectedSectionId}
@@ -1089,6 +1090,19 @@ export default function ConstructorPage() {
           )}
         </div>
       </main>
+      {showHistoryPanel ? (
+        <HistoryPanel
+          entries={persistedHistory}
+          selectedVersion={selectedHistoryVersion?.version ?? null}
+          onPreview={setSelectedHistoryVersion}
+          onRestore={(version) => void handleRestoreVersion(version)}
+          onClose={() => {
+            setShowHistoryPanel(false);
+            setSelectedHistoryVersion(null);
+          }}
+          restoring={isRestoringVersion}
+        />
+      ) : null}
     </div>
   );
 }
