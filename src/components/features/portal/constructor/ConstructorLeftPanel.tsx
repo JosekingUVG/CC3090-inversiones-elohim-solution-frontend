@@ -62,6 +62,7 @@ interface ConstructorLeftPanelProps {
   onNavigateBack?: () => void;
   handlePublishConfig?: () => void;
   isPublishingConfig?: boolean;
+  hasUnsavedChanges?: boolean;
   undo?: () => void;
   redo?: () => void;
   canUndo?: boolean;
@@ -107,6 +108,7 @@ export function ConstructorLeftPanel({
   onNavigateBack,
   handlePublishConfig,
   isPublishingConfig,
+  hasUnsavedChanges,
   undo,
   redo,
   canUndo,
@@ -252,6 +254,17 @@ export function ConstructorLeftPanel({
               </>
             )}
           </button>
+
+          <div className="flex items-center justify-center gap-1.5 text-[10px] font-semibold py-0.5">
+            {hasUnsavedChanges ? (
+              <>
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-amber-400">Cambios sin guardar</span>
+              </>
+            ) : (
+              <span className="text-slate-500">Sin cambios pendientes</span>
+            )}
+          </div>
 
           {/* Secondary Actions: Ver Tienda Live & Historial */}
           <div className="grid grid-cols-2 gap-2">
