@@ -731,7 +731,7 @@ export default function LivePreviewPage() {
                 {isClientAuthenticated ? (
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => router.push("/perfil")}
+                      onClick={() => router.push(`/preview/${storeId}/perfil`)}
                       className="flex items-center gap-1.5 text-xs font-bold transition-colors border-none bg-transparent cursor-pointer"
                       style={{ color: props.textColor || "inherit" }}
                       title="Ir a mi perfil"

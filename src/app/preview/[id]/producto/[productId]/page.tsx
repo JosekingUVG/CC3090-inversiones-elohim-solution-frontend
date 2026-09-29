@@ -267,10 +267,14 @@ export default function ClientProductDetailPage() {
             {/* User Session */}
             {isClientAuthenticated ? (
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 text-xs font-semibold opacity-90">
+                <Link
+                  href={`/preview/${storeId}/perfil`}
+                  className="flex items-center gap-1.5 text-xs font-semibold opacity-90 hover:opacity-100 transition-opacity no-underline text-inherit"
+                  title="Ir a mi perfil"
+                >
                   <User size={14} style={{ color: storePrimaryColor }} />
                   <span className="hidden sm:inline">{clientUser?.nombre}</span>
-                </div>
+                </Link>
                 <button
                   onClick={() => {
                     clientLogout();

@@ -1,0 +1,7 @@
+"use client";
+
+import { StoreProfileView } from "@/components/features/perfil/StoreProfileView";
+
+export default function PreviewStoreReservasPage() {
+  return <StoreProfileView variant="page" defaultTab="compras" />;
+}
