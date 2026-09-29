@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { PortalModal } from "@/components/ui/PortalModal";
 
 interface ConstructorLeftPanelProps {
+  dirtyPageIds: Set<string>;
   storeConfig: any;
   setStoreConfig: React.Dispatch<React.SetStateAction<any>>;
   activePageId: string;
@@ -73,6 +74,7 @@ interface ConstructorLeftPanelProps {
 }
 
 export function ConstructorLeftPanel({
+  dirtyPageIds,
   storeConfig,
   setStoreConfig,
   activePageId,
@@ -453,6 +455,12 @@ export function ConstructorLeftPanel({
                       <div className="flex items-center gap-2 truncate flex-1 min-w-0">
                         <FileText size={12} className={isActive ? "text-[#22D3A6]" : "text-slate-500"} />
                         <span className="truncate">{p.name}</span>
+                        {dirtyPageIds.has(p.id) && (
+                          <span title="Cambios sin guardar" className="flex shrink-0">
+                            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-amber-400" />
+                            <span className="sr-only">Cambios sin guardar</span>
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {p.isHome ? (

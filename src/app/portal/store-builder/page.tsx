@@ -3,6 +3,7 @@
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { changedPageIds, serializeDesign } from "@/lib/constructor/unsaved-changes";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -45,12 +46,6 @@ export default function ConstructorPage() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const token = useAuthStore((state) => state.token);
   const router = useRouter();
-
-  // Stores states
-  const [tiendas, setTiendas] = useState<TiendaDto[]>([]);
-  const [activeStore, setActiveStore] = useState<TiendaDto | null>(null);
-
-  // Store Builder State
   const historyApi = useStoreBuilderHistory<any>();
   const {
     configuracion: storeConfig,
@@ -61,6 +56,41 @@ export default function ConstructorPage() {
     canUndo,
     canRedo,
   } = historyApi;
+
+  // Stores states
+  const [tiendas, setTiendas] = useState<TiendaDto[]>([]);
+  const [activeStore, setActiveStore] = useState<TiendaDto | null>(null);
+
+  // Store Builder State
+  const [savedDesign, setSavedDesign] = useState<string | null>(null);
+  const hasUnsavedChanges = storeConfig !== null && savedDesign !== null && serializeDesign(storeConfig) !== savedDesign;
+  const dirtyPageIds = changedPageIds(storeConfig?.pages ?? [], savedDesign);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const onLinkClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!(link instanceof HTMLAnchorElement) || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
+      const destination = new URL(link.href, window.location.href);
+      if (destination.pathname === window.location.pathname && destination.search === window.location.search && destination.origin === window.location.origin) return;
+      if (!window.confirm("Tienes cambios sin guardar. ¿Quieres salir y descartarlos?")) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    document.addEventListener("click", onLinkClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      document.removeEventListener("click", onLinkClick, true);
+    };
+  }, [hasUnsavedChanges]);
+
   const [persistedHistory, setPersistedHistory] = useState<ConfiguracionHistorialDto[]>([]);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [selectedHistoryVersion, setSelectedHistoryVersion] = useState<ConfiguracionHistorialDto | null>(null);
@@ -94,6 +124,7 @@ export default function ConstructorPage() {
   const previewConfig = selectedHistoryVersion?.config ?? storeConfig;
 
   const navigateWithTransition = (href: string) => {
+    if (hasUnsavedChanges && !window.confirm("Tienes cambios sin guardar. ¿Quieres salir y descartarlos?")) return;
     if (typeof document !== "undefined" && (document as any).startViewTransition) {
       (document as any).startViewTransition(() => {
         router.push(href);
@@ -294,6 +325,8 @@ export default function ConstructorPage() {
         };
       }
 
+      setStoreConfig(config);
+      setSavedDesign(serializeDesign(config));
       resetHistory(config);
       initializedConfig.current = false;
       setActivePageId(config.currentPageId || "home");
@@ -809,11 +842,13 @@ export default function ConstructorPage() {
   };
 
   const handlePublishConfig = async () => {
-    if (!token || !activeStore || !storeConfig) return;
+    if (!token || !activeStore || !storeConfig || isPublishingConfig) return;
     setIsPublishingConfig(true);
     try {
-      const updated = await actualizarConfiguracionVisual(token, storeConfig);
-      setActiveStore(updated);
+      const submittedDesign = serializeDesign(storeConfig);
+      await actualizarConfiguracionVisual(token, storeConfig);
+      // Only mark the submitted content as saved; retain edits made during the request.
+      setSavedDesign(submittedDesign);
       toast.success("¡Plantilla visual publicada y guardada con éxito!");
     } catch (err) {
       console.error(err);
@@ -876,55 +911,177 @@ export default function ConstructorPage() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col gap-3 overflow-hidden min-h-0 relative">
-              {/* Mobile / Tablet Helper Bar */}
-              <div className="xl:hidden flex items-center justify-between p-2.5 rounded-xl border border-slate-900 bg-slate-955 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowLeftPanel(!showLeftPanel);
-                    if (showRightPanel) setShowRightPanel(false);
-                  }}
-                  className={`h-9 px-3 rounded-lg border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    showLeftPanel
-                      ? "bg-[#22D3A6] text-slate-955 border-[#22D3A6]"
-                      : "bg-slate-900/60 text-slate-300 border-slate-800 hover:text-white"
-                  }`}
-                >
-                  <Sliders size={13} />
-                  <span>Menú & Opciones</span>
-                </button>
-
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#22D3A6] animate-pulse shrink-0" />
-                  <span className="text-xs font-bold text-white truncate max-w-[140px]">
-                    {activeStore?.nombre}
-                  </span>
+            <div className="flex-1 flex flex-col gap-4 overflow-hidden min-h-0 relative">
+              {/* Header / Actions toolbar */}
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between shrink-0">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => navigateWithTransition("/portal")}
+                    className="h-10 px-4 rounded-xl border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white text-xs font-bold flex items-center gap-2 transition-all hover:bg-slate-800/40 cursor-pointer border-none"
+                    title="Volver al Portal"
+                  >
+                    <ArrowLeft size={14} />
+                    <span>Volver</span>
+                  </button>
+                  <div className="h-6 w-px bg-slate-800" />
+                  <div>
+                    <h2 className="text-xl font-black text-white flex items-center gap-2">
+                      <Sparkles className="text-[#22D3A6]" size={22} />
+                      <span>Constructor de Tienda</span>
+                    </h2>
+                    <p className="text-xs text-slate-400">Edita y publica la plantilla visual de tu tienda en línea</p>
+                  </div>
                 </div>
 
-                {selectedSectionId && (
+                <div className="flex flex-wrap items-center gap-3 xl:flex-1 xl:justify-end">
+                  {/* Active Page Selector */}
+                  <div className="flex items-center gap-2 bg-slate-955/65 px-3 py-1.5 rounded-xl border border-slate-900">
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Editar Página:</span>
+                    <select
+                      value={activePageId}
+                      onChange={(e) => {
+                        setActivePageId(e.target.value);
+                        const targetPage = storeConfig.pages.find((p: any) => p.id === e.target.value);
+                        if (targetPage && targetPage.sections.length > 0) {
+                          setSelectedSectionId(targetPage.sections[0].id);
+                        }
+                      }}
+                      className="bg-transparent text-xs font-bold text-slate-200 border-none outline-none cursor-pointer font-sans"
+                    >
+                      {storeConfig.pages.map((p: any) => (
+                        <option key={p.id} value={p.id} className="bg-slate-955 text-slate-200 font-semibold">{p.name}{dirtyPageIds.has(p.id) ? " ● (sin guardar)" : ""}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {activePageId !== "home" && (
+                    <button
+                      onClick={() => handleDeletePage(activePageId)}
+                      className="h-9 w-9 border border-rose-500/20 hover:border-rose-500/45 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl cursor-pointer transition-all flex items-center justify-center"
+                      title="Eliminar Página Actual"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+
+                  {/* Toggle Left/Right Panels on Mobile/Tablet */}
                   <button
-                    type="button"
+                    onClick={() => {
+                      setShowLeftPanel(!showLeftPanel);
+                      if (showRightPanel) setShowRightPanel(false);
+                    }}
+                    className={`xl:hidden h-10 px-3 rounded-xl border border-slate-800 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer bg-slate-900/40 hover:bg-slate-800/40 ${
+                      showLeftPanel ? "text-[#22D3A6] border-[#22D3A6]/40" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <Sliders size={14} />
+                    <span className="hidden sm:inline">Estructura</span>
+                  </button>
+
+                  <button
                     onClick={() => {
                       setShowRightPanel(!showRightPanel);
                       if (showLeftPanel) setShowLeftPanel(false);
                     }}
-                    className={`h-9 px-3 rounded-lg border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                      showRightPanel
-                        ? "bg-[#38BDF8] text-slate-955 border-[#38BDF8]"
-                        : "bg-slate-900/60 text-slate-300 border-slate-800 hover:text-white"
+                    className={`xl:hidden h-10 px-3 rounded-xl border border-slate-800 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer bg-slate-900/40 hover:bg-slate-800/40 ${
+                      showRightPanel ? "text-[#22D3A6] border-[#22D3A6]/40" : "text-slate-400 hover:text-white"
                     }`}
                   >
-                    <Settings size={13} />
-                    <span>Ajustes</span>
+                    <Settings size={14} />
+                    <span className="hidden sm:inline">Propiedades</span>
                   </button>
-                )}
+
+                  <div className="h-6 w-px bg-slate-800" />
+                  {/* Viewport size toggles */}
+                  <div className="flex items-center gap-1 bg-slate-955/60 p-1.5 rounded-xl border border-slate-900">
+                    <button
+                      onClick={() => setPreviewDevice("desktop")}
+                      className={`p-2 rounded-lg cursor-pointer border-none transition-all ${
+                        previewDevice === "desktop" ? "bg-[#22D3A6] text-slate-955" : "text-slate-400 hover:text-white bg-transparent"
+                      }`}
+                      title="Vista Escritorio"
+                    >
+                      <Monitor size={16} />
+                    </button>
+                    <button
+                      onClick={() => setPreviewDevice("tablet")}
+                      className={`p-2 rounded-lg cursor-pointer border-none transition-all ${
+                        previewDevice === "tablet" ? "bg-[#22D3A6] text-slate-955" : "text-slate-400 hover:text-white bg-transparent"
+                      }`}
+                      title="Vista Tableta"
+                    >
+                      <Tablet size={16} />
+                    </button>
+                    <button
+                      onClick={() => setPreviewDevice("mobile")}
+                      className={`p-2 rounded-lg cursor-pointer border-none transition-all ${
+                        previewDevice === "mobile" ? "bg-[#22D3A6] text-slate-955" : "text-slate-400 hover:text-white bg-transparent"
+                      }`}
+                      title="Vista Móvil"
+                    >
+                      <Smartphone size={16} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1">
+                    <button onClick={undo} disabled={!canUndo} title="Deshacer (Ctrl/Cmd+Z)" className="p-2 rounded-lg text-slate-300 hover:text-white disabled:opacity-40">
+                      <Undo2 size={16} />
+                    </button>
+                    <button onClick={redo} disabled={!canRedo} title="Rehacer (Ctrl/Cmd+Y)" className="p-2 rounded-lg text-slate-300 hover:text-white disabled:opacity-40">
+                      <Redo2 size={16} />
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setShowHistoryPanel(true)}
+                    className="flex h-10 items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-4 text-xs font-bold text-slate-200 transition hover:border-slate-600 hover:text-white"
+                  >
+                    <History size={15} className="text-[#38BDF8]" />
+                    Historial
+                  </button>
+
+                  <a
+                    href={activeStore?.slug ? `https://${activeStore.slug}.${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "dmhub.fun"}` : `/preview/${activeStore?.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-10 px-4 rounded-xl bg-slate-900 hover:bg-slate-855 border border-slate-800 text-slate-350 hover:text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer no-underline"
+                    title="Ver Tienda Completa en Vivo (Subdominio)"
+                  >
+                    <Eye size={14} className="text-[#38BDF8]" />
+                    <span>Ver Tienda (Live)</span>
+                  </a>
+
+                  <div className="ml-auto flex shrink-0 items-center gap-3">
+                    <span role="status" className={`flex items-center gap-2 whitespace-nowrap text-xs font-semibold ${hasUnsavedChanges ? "text-amber-400" : "text-slate-400"}`}>
+                      {hasUnsavedChanges && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-amber-400" />}
+                      {hasUnsavedChanges ? "Cambios sin guardar" : "Sin cambios pendientes"}
+                    </span>
+                    <button
+                      onClick={handlePublishConfig}
+                      disabled={isPublishingConfig}
+                      className="flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-[#22D3A6] to-[#38BDF8] px-5 text-xs font-black text-slate-955 shadow-[0_4px_15px_rgba(34,211,166,0.2)] transition-all hover:brightness-110 disabled:opacity-50"
+                    >
+                      {isPublishingConfig ? (
+                        <>
+                          <Loader2 className="animate-spin" size={15} />
+                          <span>Publicando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save size={15} />
+                          <span>Guardar y Publicar</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Main constructor workspace layout */}
               <div className="flex flex-1 gap-4 overflow-hidden min-h-0 relative">
                 {/* 1. LEFT PANEL (Control Center, Herramientas, Secciones, Diseño, Agente) */}
                 <ConstructorLeftPanel
+                  dirtyPageIds={dirtyPageIds}
                   storeConfig={storeConfig}
                   setStoreConfig={setStoreConfig}
                   activePageId={activePageId}
