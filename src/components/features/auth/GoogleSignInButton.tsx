@@ -10,6 +10,12 @@ type GoogleSignInButtonProps = {
 export function GoogleSignInButton({ onSuccess, onError }: GoogleSignInButtonProps) {
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
+  if (!clientId) return null;
+
+  return <GoogleSignInButtonInner onSuccess={onSuccess} onError={onError} />;
+}
+
+function GoogleSignInButtonInner({ onSuccess, onError }: GoogleSignInButtonProps) {
   const login = useGoogleLogin({
     onSuccess: (tokenResponse) => {
       onSuccess({ credential: tokenResponse.access_token });
@@ -17,7 +23,6 @@ export function GoogleSignInButton({ onSuccess, onError }: GoogleSignInButtonPro
     onError: () => onError(),
   });
 
-  if (!clientId) return null;
 
   return (
     <button
