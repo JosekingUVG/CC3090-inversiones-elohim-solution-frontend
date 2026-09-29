@@ -107,7 +107,7 @@ export function hasTenantContext(): boolean {
   return Boolean(window.localStorage.getItem("active_tenant_id"));
 }
 
-export function buildAuthHeaders(token?: string, skipTenant?: boolean): HeadersInit {
+export function buildAuthHeaders(token?: string, skipTenant?: boolean, tenantIdOrSlug?: string): HeadersInit {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -116,14 +116,30 @@ export function buildAuthHeaders(token?: string, skipTenant?: boolean): HeadersI
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  if (!skipTenant && typeof window !== "undefined") {
-    const subdomain = getSubdomain();
-    if (subdomain && subdomain !== "www" && subdomain !== "admin") {
-      headers["X-Tenant-Slug"] = subdomain.toLowerCase();
-    } else {
-      const tenantId = window.localStorage.getItem("active_tenant_id");
-      if (tenantId) {
-        headers["X-Tenant-ID"] = tenantId;
+  if (!skipTenant) {
+    if (tenantIdOrSlug) {
+      const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantIdOrSlug);
+      if (isGuid) {
+        headers["X-Tenant-ID"] = tenantIdOrSlug;
+      } else {
+        headers["X-Tenant-Slug"] = tenantIdOrSlug.toLowerCase();
+        headers["X-Tenant-ID"] = tenantIdOrSlug;
+      }
+    } else if (typeof window !== "undefined") {
+      const subdomain = getSubdomain();
+      if (subdomain && subdomain !== "www" && subdomain !== "admin") {
+        headers["X-Tenant-Slug"] = subdomain.toLowerCase();
+      } else {
+        const tenantId = window.localStorage.getItem("active_tenant_id");
+        if (tenantId) {
+          const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantId);
+          if (isGuid) {
+            headers["X-Tenant-ID"] = tenantId;
+          } else {
+            headers["X-Tenant-Slug"] = tenantId.toLowerCase();
+            headers["X-Tenant-ID"] = tenantId;
+          }
+        }
       }
     }
   }
