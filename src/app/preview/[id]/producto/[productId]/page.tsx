@@ -6,15 +6,15 @@ import Link from "next/link";
 import { useClientAuthStore } from "@/stores/useClientAuthStore";
 import { useCarrito } from "@/hooks/useCarrito";
 import { agregarArticuloCarrito } from "@/lib/api/carrito";
-import { getTiendaPorIdOSlug, TiendaDto } from "@/lib/api/admin";
+import { getTiendaPorIdOSlug, getPlatformProductos, TiendaDto, PlatformProductoDto } from "@/lib/api/admin";
 import { obtenerProductoPorId, TProductoDetalle } from "@/lib/api/productos";
+import { isDarkBg } from "@/lib/utils";
 import { 
   ArrowLeft, 
   ShoppingCart, 
   Minus, 
   Plus, 
   Loader2, 
-  ShoppingBag, 
   Store, 
   User, 
   LogOut,
@@ -40,6 +40,7 @@ export default function ClientProductDetailPage() {
 
   // Product detail states
   const [product, setProduct] = useState<TProductoDetalle | null>(null);
+  const [storeProducts, setStoreProducts] = useState<PlatformProductoDto[]>([]);
   const [loadingProduct, setLoadingProduct] = useState(true);
   const [quantity, setQuantity] = useState(1);
 
@@ -100,6 +101,17 @@ export default function ClientProductDetailPage() {
         );
         if (isCancelled) return;
         setProduct(productData);
+
+        // Try to fetch platform products for related items
+        try {
+          const storeProds = await getPlatformProductos(clientToken || "");
+          if (!isCancelled) {
+            setStoreProducts(storeProds || []);
+          }
+        } catch (prodErr) {
+          console.warn("Could not fetch store products for related items", prodErr);
+        }
+
       } catch (err) {
         console.error("Error loading product detail page", err);
       } finally {
@@ -128,6 +140,15 @@ export default function ClientProductDetailPage() {
     }
   }, [product, store]);
 
+  // Related products from the same store (excluding current product)
+  const relatedProducts = useMemo(() => {
+    if (!storeProducts || storeProducts.length === 0) return [];
+    const currentId = product?.id || product?.idProducto || productId;
+    return storeProducts
+      .filter((p: any) => (p.id || p.productoId || p.idProducto) !== currentId)
+      .slice(0, 4);
+  }, [storeProducts, product, productId]);
+
   // Header and Announcement visual styles
   const headerSection = visualConfig?.sections?.find((s: any) => s.type === "header") || 
                         visualConfig?.pages?.[0]?.sections?.find((s: any) => s.type === "header");
@@ -139,13 +160,14 @@ export default function ClientProductDetailPage() {
   const announcementProps = announcementSection?.properties || {};
 
   const storePrimaryColor = visualConfig?.theme?.accentColor || "#1AB38C";
-  const isDark = visualConfig?.theme?.isDark || false;
+  const isDark = visualConfig?.theme?.isDark ?? isDarkBg(visualConfig?.theme?.backgroundColor || "#FFFFFF");
 
   const headerBgColor = headerProps.backgroundColor || (isDark ? "#0F172A" : "#FFFFFF");
   const headerTextColor = headerProps.textColor || (isDark ? "#F8FAFC" : "#0F172A");
   const announcementBgColor = announcementProps.backgroundColor || storePrimaryColor;
   const announcementTextColor = announcementProps.textColor || "#FFFFFF";
   const storeLogo = headerProps.logoUrl || "";
+
 
   const handleAddToCart = async () => {
     if (!product) return;
@@ -342,23 +364,35 @@ export default function ClientProductDetailPage() {
           </Link>
         </div>
 
-        {/* Product Grid Card */}
+        {/* Product Detail Card */}
         <div 
           style={{
-            backgroundColor: isDark ? "rgba(15, 23, 42, 0.4)" : "#FFFFFF",
-            borderColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#E2E8F0"
+            backgroundColor: isDark ? "rgba(15, 23, 42, 0.65)" : "#FFFFFF",
+            borderColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#E2E8F0",
+            backdropFilter: isDark ? "blur(16px)" : undefined,
           }}
-          className="rounded-3xl border p-6 md:p-8 flex flex-col md:flex-row gap-8 shadow-xl shadow-slate-100/50"
+          className="rounded-3xl border p-6 md:p-8 flex flex-col md:flex-row gap-8 shadow-xl shadow-slate-100/50 transition-all"
         >
           {/* Left Column: Product Image */}
-          <div className="w-full md:w-1/2 aspect-square rounded-2xl overflow-hidden bg-slate-50 border border-slate-150 flex items-center justify-center relative group">
+          <div 
+            style={{
+              backgroundColor: isDark ? "rgba(15, 23, 42, 0.4)" : "#F8FAFC",
+              borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#E2E8F0"
+            }}
+            className="w-full md:w-1/2 aspect-square rounded-2xl overflow-hidden border flex items-center justify-center relative group"
+          >
             <img 
               src={product.imagenUrl || product.imagenPrincipal || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80"} 
               alt={product.nombre || product.nombreProducto} 
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-102"
             />
-            <span className="absolute top-4 left-4 px-2 py-0.5 rounded bg-slate-900/90 text-white text-[9px] font-black tracking-wider uppercase flex items-center gap-1">
-              <Sparkles size={10} className="text-amber-400" />
+            <span 
+              style={{
+                backgroundColor: isDark ? "rgba(15, 23, 42, 0.85)" : "rgba(15, 23, 42, 0.9)"
+              }}
+              className="absolute top-4 left-4 px-2.5 py-1 rounded-lg text-white text-[9px] font-black tracking-wider uppercase flex items-center gap-1.5 shadow-sm"
+            >
+              <Sparkles size={11} style={{ color: storePrimaryColor }} />
               <span>Producto Oficial</span>
             </span>
           </div>
@@ -368,27 +402,53 @@ export default function ClientProductDetailPage() {
             <div className="space-y-4">
               {/* Product Badge / Category placeholder */}
               <div className="flex gap-2">
-                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[9px] font-extrabold uppercase">
-                  Categoría ID: {product.categoriaId || "General"}
+                <span 
+                  style={{
+                    backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#F1F5F9",
+                    color: isDark ? "#CBD5E1" : "#475569"
+                  }}
+                  className="px-2.5 py-1 rounded-lg text-[9px] font-extrabold uppercase"
+                >
+                  Categoría: {product.categoriaId || "General"}
                 </span>
                 {productStock > 0 ? (
-                  <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 text-[9px] font-extrabold uppercase border border-emerald-100">
-                    En Stock
+                  <span 
+                    style={{
+                      backgroundColor: isDark ? "rgba(16, 185, 129, 0.15)" : "#ECFDF5",
+                      color: isDark ? "#34D399" : "#059669",
+                      borderColor: isDark ? "rgba(16, 185, 129, 0.3)" : "#A7F3D0"
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-[9px] font-extrabold uppercase border"
+                  >
+                    En Stock ({productStock})
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-600 text-[9px] font-extrabold uppercase border border-rose-100">
+                  <span 
+                    style={{
+                      backgroundColor: isDark ? "rgba(244, 63, 94, 0.15)" : "#FFF1F2",
+                      color: isDark ? "#FB7185" : "#E11D48",
+                      borderColor: isDark ? "rgba(244, 63, 94, 0.3)" : "#FECDD3"
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-[9px] font-extrabold uppercase border"
+                  >
                     Agotado
                   </span>
                 )}
               </div>
 
               {/* Product Name */}
-              <h1 className="text-2xl md:text-3xl font-black tracking-tight leading-tight">
+              <h1 
+                style={{ color: isDark ? "#F8FAFC" : "#0F172A" }}
+                className="text-2xl md:text-3xl font-black tracking-tight leading-tight"
+              >
                 {product.nombre || product.nombreProducto}
               </h1>
 
               {/* Price Tag */}
-              <div className="py-2 border-b border-slate-100/50">
+              <div 
+                style={{ borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(241, 245, 249, 1)" }}
+                className="py-2 border-b"
+              >
                 <span style={{ color: storePrimaryColor }} className="text-3xl font-black">
                   Q {((product.precioDetalle ?? product.precio ?? 0) as number).toLocaleString("es-GT", { minimumFractionDigits: 2 })}
                 </span>
@@ -396,20 +456,45 @@ export default function ClientProductDetailPage() {
 
               {/* Description */}
               <div className="space-y-2">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descripción</h4>
-                <p className="text-sm text-slate-500 leading-relaxed font-medium">
+                <h4 
+                  style={{ color: isDark ? "#94A3B8" : "#94A3B8" }}
+                  className="text-[10px] font-bold uppercase tracking-wider"
+                >
+                  Descripción
+                </h4>
+                <p 
+                  style={{ color: isDark ? "#CBD5E1" : "#64748B" }}
+                  className="text-sm leading-relaxed font-medium"
+                >
                   {product.descripcion || "Este es un producto de alta calidad, seleccionado especialmente para brindarte el mejor rendimiento y durabilidad. Disponible para retiro inmediato."}
                 </p>
               </div>
 
               {/* Additional Specs */}
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100/50">
-                <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
-                  <Package size={14} className="text-slate-400" />
+              <div 
+                style={{ borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(241, 245, 249, 1)" }}
+                className="grid grid-cols-2 gap-4 pt-4 border-t"
+              >
+                <div 
+                  style={{
+                    backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "#F8FAFC",
+                    borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#F1F5F9",
+                    color: isDark ? "#CBD5E1" : "#64748B"
+                  }}
+                  className="flex items-center gap-2 text-xs font-semibold p-2.5 rounded-xl border"
+                >
+                  <Package size={14} style={{ color: storePrimaryColor }} />
                   <span>Código: {product.sku || product.codigoProducto || "N/A"}</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
-                  <ShieldCheck size={14} className="text-slate-400" />
+                <div 
+                  style={{
+                    backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "#F8FAFC",
+                    borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#F1F5F9",
+                    color: isDark ? "#CBD5E1" : "#64748B"
+                  }}
+                  className="flex items-center gap-2 text-xs font-semibold p-2.5 rounded-xl border"
+                >
+                  <ShieldCheck size={14} style={{ color: storePrimaryColor }} />
                   <span>Garantía de Satisfacción</span>
                 </div>
               </div>
@@ -421,20 +506,36 @@ export default function ClientProductDetailPage() {
                 <div className="flex items-center gap-4">
                   {/* Quantity selector */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cantidad</label>
-                    <div className="flex items-center border border-slate-200 rounded-xl p-0.5 bg-slate-50 h-11 w-32 justify-between">
+                    <label 
+                      style={{ color: isDark ? "#94A3B8" : "#94A3B8" }}
+                      className="text-[10px] font-bold uppercase tracking-wider"
+                    >
+                      Cantidad
+                    </label>
+                    <div 
+                      style={{
+                        borderColor: isDark ? "rgba(255, 255, 255, 0.15)" : "#E2E8F0",
+                        backgroundColor: isDark ? "rgba(15, 23, 42, 0.6)" : "#F8FAFC"
+                      }}
+                      className="flex items-center border rounded-xl p-0.5 h-11 w-32 justify-between"
+                    >
                       <button
                         onClick={decrementQty}
-                        className="h-10 w-10 flex items-center justify-center hover:text-slate-900 text-slate-400 bg-transparent border-none cursor-pointer"
+                        style={{ color: isDark ? "#CBD5E1" : "#64748B" }}
+                        className="h-10 w-10 flex items-center justify-center hover:opacity-100 bg-transparent border-none cursor-pointer"
                       >
                         <Minus size={14} />
                       </button>
-                      <span className="text-sm font-extrabold text-slate-700 w-8 text-center select-none">
+                      <span 
+                        style={{ color: isDark ? "#F8FAFC" : "#1E293B" }}
+                        className="text-sm font-extrabold w-8 text-center select-none"
+                      >
                         {quantity}
                       </span>
                       <button
                         onClick={incrementQty}
-                        className="h-10 w-10 flex items-center justify-center hover:text-slate-900 text-slate-400 bg-transparent border-none cursor-pointer"
+                        style={{ color: isDark ? "#CBD5E1" : "#64748B" }}
+                        className="h-10 w-10 flex items-center justify-center hover:opacity-100 bg-transparent border-none cursor-pointer"
                       >
                         <Plus size={14} />
                       </button>
@@ -442,7 +543,10 @@ export default function ClientProductDetailPage() {
                   </div>
 
                   <div className="flex-1 flex flex-col justify-end gap-1.5 pt-5">
-                    <span className="text-[9px] text-slate-400 font-bold uppercase select-none">
+                    <span 
+                      style={{ color: isDark ? "#94A3B8" : "#94A3B8" }}
+                      className="text-[9px] font-bold uppercase select-none"
+                    >
                       Disponibles: {productStock} unidades
                     </span>
                   </div>
@@ -452,8 +556,11 @@ export default function ClientProductDetailPage() {
                 <button
                   onClick={handleAddToCart}
                   disabled={isAddingToCart}
-                  className="w-full h-12 rounded-xl text-white font-bold text-xs shadow-md transition-all hover:scale-[1.01] cursor-pointer border-none flex items-center justify-center gap-2 disabled:opacity-50"
-                  style={{ backgroundColor: storePrimaryColor }}
+                  className="w-full h-12 rounded-xl text-white font-bold text-xs shadow-md transition-all hover:opacity-95 hover:scale-[1.005] cursor-pointer border-none flex items-center justify-center gap-2 disabled:opacity-50"
+                  style={{ 
+                    backgroundColor: storePrimaryColor,
+                    boxShadow: `0 8px 24px ${storePrimaryColor}40`
+                  }}
                 >
                   {isAddingToCart ? (
                     <>
@@ -469,12 +576,131 @@ export default function ClientProductDetailPage() {
                 </button>
               </div>
             ) : (
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center">
-                <p className="text-xs font-bold text-slate-500">Este producto se encuentra agotado temporalmente.</p>
+              <div 
+                style={{
+                  backgroundColor: isDark ? "rgba(15, 23, 42, 0.4)" : "#F8FAFC",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#E2E8F0"
+                }}
+                className="p-4 border rounded-2xl text-center"
+              >
+                <p 
+                  style={{ color: isDark ? "#94A3B8" : "#64748B" }}
+                  className="text-xs font-bold"
+                >
+                  Este producto se encuentra agotado temporalmente.
+                </p>
               </div>
             )}
           </div>
         </div>
+
+        {/* Related Product Cards Section */}
+        {relatedProducts.length > 0 && (
+          <section className="space-y-6 pt-6">
+            <div 
+              style={{ borderColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(241, 245, 249, 1)" }}
+              className="flex items-center justify-between border-b pb-4"
+            >
+              <h3 
+                style={{ color: isDark ? "#F8FAFC" : "#0F172A" }}
+                className="text-sm font-black uppercase tracking-widest flex items-center gap-2"
+              >
+                <Sparkles size={15} style={{ color: storePrimaryColor }} />
+                <span>Productos Relacionados</span>
+              </h3>
+              <Link
+                href={`/preview/${storeId}`}
+                style={{ color: storePrimaryColor }}
+                className="text-xs font-bold hover:underline flex items-center gap-1"
+              >
+                <span>Ver todo el catálogo</span>
+                <ChevronRight size={13} />
+              </Link>
+            </div>
+
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              {relatedProducts.map((p: any, idx: number) => {
+                const pId = p.id || p.productoId || p.idProducto;
+                const pName = p.nombre || p.nombreProducto;
+                const pPrice = typeof p.precio === "number" ? p.precio.toFixed(2) : p.precio;
+                const pImg = p.imagenUrl || p.imagenPrincipal || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&q=80";
+
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      backgroundColor: isDark ? "rgba(15, 23, 42, 0.55)" : "#FFFFFF",
+                      borderColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#E2E8F0"
+                    }}
+                    className="rounded-2xl border p-4 flex flex-col gap-3.5 hover:shadow-xl transition-all group cursor-pointer"
+                    onClick={() => router.push(`/preview/${storeId}/producto/${pId}`)}
+                  >
+                    <div 
+                      style={{
+                        backgroundColor: isDark ? "rgba(15, 23, 42, 0.4)" : "#F1F5F9"
+                      }}
+                      className="aspect-square rounded-xl overflow-hidden relative flex items-center justify-center"
+                    >
+                      <img
+                        src={pImg}
+                        alt={pName}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
+                      />
+                      <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-slate-950/90 text-white text-[9px] font-black tracking-wider uppercase">
+                        Destacado
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 text-left">
+                      <h4
+                        style={{ color: isDark ? "#F8FAFC" : "#0F172A" }}
+                        className="text-xs font-bold transition-colors truncate group-hover:opacity-80"
+                      >
+                        {pName}
+                      </h4>
+                      <div className="flex items-center justify-between mt-1">
+                        <span
+                          style={{ color: storePrimaryColor }}
+                          className="text-sm font-black"
+                        >
+                          Q{pPrice}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!isClientAuthenticated) {
+                              setAuthModalTab("login");
+                              setIsAuthModalOpen(true);
+                              return;
+                            }
+                            try {
+                              await agregarArticuloCarrito(clientToken || "", { productoId: pId, cantidad: 1 });
+                              await mutateCart();
+                              setIsCartDrawerOpen(true);
+                              toast.success("Producto agregado al carrito");
+                            } catch (err) {
+                              toast.error("Error al agregar al carrito");
+                            }
+                          }}
+
+                          style={{
+                            backgroundColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(241, 245, 249, 1)",
+                            color: isDark ? "#F8FAFC" : "#475569"
+                          }}
+                          className="p-2 rounded-lg transition-all border-none cursor-pointer flex items-center hover:scale-105"
+                          title="Añadir al carrito"
+                        >
+                          <ShoppingCart size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </main>
 
       {/* Footer */}
