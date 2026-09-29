@@ -1,5 +1,8 @@
 import { apiRequest, buildAuthHeaders } from "@/lib/api/client";
 import { TCategoria, TMarca, TProducto } from "@/types";
+import type { PlatformProductoDto } from "./admin";
+
+export type TProductoDetalle = PlatformProductoDto & TProducto;
 
 export type TProductosParams = {
   category?: string;
@@ -55,15 +58,41 @@ export async function obtenerProductosListado(params?: TProductosParams): Promis
   return response.productos;
 }
 
-export async function obtenerProductoPorId(idProducto: string): Promise<TProducto> {
-  return apiRequest<TProducto>(
+export async function obtenerProductoPorId(
+  idProducto: string,
+  tenantIdOrSlug?: string,
+  token?: string
+): Promise<TProductoDetalle> {
+  const headers = buildAuthHeaders(token, false, tenantIdOrSlug);
+  const raw = await apiRequest<any>(
     `/api/v1/productos/${idProducto}`,
     {
       method: "GET",
-      headers: buildAuthHeaders(),
+      headers,
     },
     "Error al obtener detalle del producto"
   );
+
+  return {
+    ...raw,
+    id: raw.id ?? raw.idProducto,
+    idProducto: raw.id ?? raw.idProducto,
+    nombre: raw.nombre ?? raw.nombreProducto,
+    nombreProducto: raw.nombre ?? raw.nombreProducto,
+    precio: raw.precioDetalle ?? raw.precio ?? 0,
+    precioDetalle: raw.precioDetalle ?? raw.precio ?? 0,
+    precioMayoreo: raw.precioMayoreo ?? raw.precio ?? 0,
+    stockActual: raw.stockTotal ?? raw.stockActual ?? 0,
+    stockTotal: raw.stockTotal ?? raw.stockActual ?? 0,
+    codigoProducto: raw.sku ?? raw.codigoProducto ?? "",
+    sku: raw.sku ?? raw.codigoProducto ?? "",
+    imagenPrincipal: raw.imagenUrl ?? raw.imagenPrincipal ?? "",
+    imagenUrl: raw.imagenUrl ?? raw.imagenPrincipal ?? "",
+    publicado: raw.publicado ?? true,
+    stockMinimo: raw.stockMinimo ?? 0,
+    fechaCreacion: raw.fechaCreacion ?? "",
+    inventarios: raw.inventarios ?? [],
+  };
 }
 
 export async function buscarProductos(query: string): Promise<TProductoBusqueda[]> {
