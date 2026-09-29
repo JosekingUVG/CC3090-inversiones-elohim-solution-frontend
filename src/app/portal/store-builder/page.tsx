@@ -3,6 +3,7 @@
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { changedPageIds, serializeDesign } from "@/lib/constructor/unsaved-changes";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -45,12 +46,6 @@ export default function ConstructorPage() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const token = useAuthStore((state) => state.token);
   const router = useRouter();
-
-  // Stores states
-  const [tiendas, setTiendas] = useState<TiendaDto[]>([]);
-  const [activeStore, setActiveStore] = useState<TiendaDto | null>(null);
-
-  // Store Builder State
   const historyApi = useStoreBuilderHistory<any>();
   const {
     configuracion: storeConfig,
@@ -61,6 +56,41 @@ export default function ConstructorPage() {
     canUndo,
     canRedo,
   } = historyApi;
+
+  // Stores states
+  const [tiendas, setTiendas] = useState<TiendaDto[]>([]);
+  const [activeStore, setActiveStore] = useState<TiendaDto | null>(null);
+
+  // Store Builder State
+  const [savedDesign, setSavedDesign] = useState<string | null>(null);
+  const hasUnsavedChanges = storeConfig !== null && savedDesign !== null && serializeDesign(storeConfig) !== savedDesign;
+  const dirtyPageIds = changedPageIds(storeConfig?.pages ?? [], savedDesign);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const onLinkClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!(link instanceof HTMLAnchorElement) || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
+      const destination = new URL(link.href, window.location.href);
+      if (destination.pathname === window.location.pathname && destination.search === window.location.search && destination.origin === window.location.origin) return;
+      if (!window.confirm("Tienes cambios sin guardar. ¿Quieres salir y descartarlos?")) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    document.addEventListener("click", onLinkClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      document.removeEventListener("click", onLinkClick, true);
+    };
+  }, [hasUnsavedChanges]);
+
   const [persistedHistory, setPersistedHistory] = useState<ConfiguracionHistorialDto[]>([]);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [selectedHistoryVersion, setSelectedHistoryVersion] = useState<ConfiguracionHistorialDto | null>(null);
@@ -93,6 +123,7 @@ export default function ConstructorPage() {
   const previewConfig = selectedHistoryVersion?.config ?? storeConfig;
 
   const navigateWithTransition = (href: string) => {
+    if (hasUnsavedChanges && !window.confirm("Tienes cambios sin guardar. ¿Quieres salir y descartarlos?")) return;
     if (typeof document !== "undefined" && (document as any).startViewTransition) {
       (document as any).startViewTransition(() => {
         router.push(href);
@@ -279,6 +310,8 @@ export default function ConstructorPage() {
         };
       }
 
+      setStoreConfig(config);
+      setSavedDesign(serializeDesign(config));
       resetHistory(config);
       initializedConfig.current = false;
       setActivePageId(config.currentPageId || "home");
@@ -794,11 +827,13 @@ export default function ConstructorPage() {
   };
 
   const handlePublishConfig = async () => {
-    if (!token || !activeStore || !storeConfig) return;
+    if (!token || !activeStore || !storeConfig || isPublishingConfig) return;
     setIsPublishingConfig(true);
     try {
-      const updated = await actualizarConfiguracionVisual(token, storeConfig);
-      setActiveStore(updated);
+      const submittedDesign = serializeDesign(storeConfig);
+      await actualizarConfiguracionVisual(token, storeConfig);
+      // Only mark the submitted content as saved; retain edits made during the request.
+      setSavedDesign(submittedDesign);
       toast.success("¡Plantilla visual publicada y guardada con éxito!");
     } catch (err) {
       console.error(err);
@@ -882,7 +917,7 @@ export default function ConstructorPage() {
                   </div>
                 </div>
                 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3 xl:flex-1 xl:justify-end">
                   {/* Active Page Selector */}
                   <div className="flex items-center gap-2 bg-slate-955/65 px-3 py-1.5 rounded-xl border border-slate-900">
                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Editar Página:</span>
@@ -898,7 +933,7 @@ export default function ConstructorPage() {
                       className="bg-transparent text-xs font-bold text-slate-200 border-none outline-none cursor-pointer font-sans"
                     >
                       {storeConfig.pages.map((p: any) => (
-                        <option key={p.id} value={p.id} className="bg-slate-955 text-slate-200 font-semibold">{p.name}</option>
+                        <option key={p.id} value={p.id} className="bg-slate-955 text-slate-200 font-semibold">{p.name}{dirtyPageIds.has(p.id) ? " ● (sin guardar)" : ""}</option>
                       ))}
                     </select>
                   </div>
@@ -1000,23 +1035,29 @@ export default function ConstructorPage() {
                     <span>Ver Tienda (Live)</span>
                   </a>
 
-                  <button
-                    onClick={handlePublishConfig}
-                    disabled={isPublishingConfig}
-                    className="h-10 px-5 rounded-xl bg-gradient-to-r from-[#22D3A6] to-[#38BDF8] text-slate-955 text-xs font-black shadow-[0_4px_15px_rgba(34,211,166,0.2)] hover:brightness-110 cursor-pointer border-none transition-all flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {isPublishingConfig ? (
-                      <>
-                        <Loader2 className="animate-spin" size={15} />
-                        <span>Publicando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save size={15} />
-                        <span>Guardar y Publicar</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="ml-auto flex shrink-0 items-center gap-3">
+                    <span role="status" className={`flex items-center gap-2 whitespace-nowrap text-xs font-semibold ${hasUnsavedChanges ? "text-amber-400" : "text-slate-400"}`}>
+                      {hasUnsavedChanges && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-amber-400" />}
+                      {hasUnsavedChanges ? "Cambios sin guardar" : "Sin cambios pendientes"}
+                    </span>
+                    <button
+                      onClick={handlePublishConfig}
+                      disabled={isPublishingConfig}
+                      className="flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-[#22D3A6] to-[#38BDF8] px-5 text-xs font-black text-slate-955 shadow-[0_4px_15px_rgba(34,211,166,0.2)] transition-all hover:brightness-110 disabled:opacity-50"
+                    >
+                      {isPublishingConfig ? (
+                        <>
+                          <Loader2 className="animate-spin" size={15} />
+                          <span>Publicando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save size={15} />
+                          <span>Guardar y Publicar</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1024,6 +1065,7 @@ export default function ConstructorPage() {
               <div className="flex flex-1 gap-6 overflow-hidden min-h-0">
                 {/* 1. LEFT PANEL */}
                 <ConstructorLeftPanel
+                  dirtyPageIds={dirtyPageIds}
                   storeConfig={storeConfig}
                   setStoreConfig={setStoreConfig}
                   activePageId={activePageId}
