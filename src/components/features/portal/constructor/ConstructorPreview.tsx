@@ -13,6 +13,7 @@ interface ConstructorPreviewProps {
   activeStore: any;
   constructorSearchTerm: string;
   setConstructorSearchTerm: (term: string) => void;
+  setShowRightPanel?: (show: boolean) => void;
 }
 
 const isDarkBg = (bgColor: string) => {
@@ -55,9 +56,6 @@ const getSectionStyle = (properties: any, theme: any) => {
     }
     
     styles.backgroundColor = rgbaBg;
-    const blurAmount = properties.blur ?? 12;
-    styles.backdropFilter = `blur(${blurAmount}px)`;
-    styles.WebkitBackdropFilter = `blur(${blurAmount}px)`;
     styles.border = "1px solid rgba(255, 255, 255, 0.2)";
     styles.boxShadow = "0 8px 32px 0 rgba(0, 0, 0, 0.1)";
   } else {
@@ -97,9 +95,15 @@ export function ConstructorPreview({
   previewDevice,
   activeStore,
   constructorSearchTerm,
-  setConstructorSearchTerm
+  setConstructorSearchTerm,
+  setShowRightPanel
 }: ConstructorPreviewProps) {
   const currentPage = storeConfig.pages.find((p: any) => p.id === activePageId) || storeConfig.pages[0];
+
+  const handleSelectSection = (id: string) => {
+    setSelectedSectionId(id);
+    setShowRightPanel?.(true);
+  };
 
   return (
     <div className="flex-1 rounded-xl border border-slate-900 bg-[#0c1622] p-6 flex items-center justify-center overflow-auto min-w-0 relative">
@@ -144,7 +148,7 @@ export function ConstructorPreview({
               return (
                 <div
                   key={section.id}
-                  onClick={() => setSelectedSectionId(section.id)}
+                  onClick={() => handleSelectSection(section.id)}
                   style={{
                     backgroundColor: announcementBg,
                     color: props.textColor || "#FFFFFF",
@@ -165,7 +169,7 @@ export function ConstructorPreview({
               return (
                 <header
                   key={section.id}
-                  onClick={() => setSelectedSectionId(section.id)}
+                  onClick={() => handleSelectSection(section.id)}
                   style={{
                     backgroundColor: props.backgroundColor || "#FFFFFF",
                     color: props.textColor || "#0F172A",
@@ -236,7 +240,7 @@ export function ConstructorPreview({
               return (
                 <section
                   key={section.id}
-                  onClick={() => setSelectedSectionId(section.id)}
+                  onClick={() => handleSelectSection(section.id)}
                   style={heroStyle}
                   className={`relative cursor-pointer ${previewDevice === "mobile" ? "py-8 px-4 min-h-[180px]" : "py-16 px-8 min-h-[260px]"} text-center flex flex-col items-center justify-center transition-all select-none ${
                     isSelected ? "outline outline-2 outline-[#22D3A6] outline-offset-[-2px] z-30 animate-pulse" : ""
@@ -298,7 +302,7 @@ export function ConstructorPreview({
               return (
                 <section
                   key={section.id}
-                  onClick={() => setSelectedSectionId(section.id)}
+                  onClick={() => handleSelectSection(section.id)}
                   style={{
                     backgroundColor: props.backgroundColor || "#FFFFFF",
                     color: props.textColor || "#0F172A",
@@ -312,9 +316,16 @@ export function ConstructorPreview({
                     style={{ borderBottomColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(241, 245, 249, 1)" }}
                     className="flex items-center justify-between border-b pb-3"
                   >
-                    <h3 className="text-sm font-black uppercase tracking-wider text-left">
-                      {props.title || "Productos Destacados"}
-                    </h3>
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-wider text-left">
+                        {props.title || "Productos Destacados"}
+                      </h3>
+                      {props.subtitle && (
+                        <p className="text-[11px] text-slate-400 text-left mt-0.5 font-normal">
+                          {props.subtitle}
+                        </p>
+                      )}
+                    </div>
                     <span 
                       style={{ color: storeConfig.theme?.accentColor || "#1AB38C" }}
                       className="text-xs font-semibold hover:underline"
@@ -423,7 +434,7 @@ export function ConstructorPreview({
               return (
                 <section
                   key={section.id}
-                  onClick={() => setSelectedSectionId(section.id)}
+                  onClick={() => handleSelectSection(section.id)}
                   style={{
                     backgroundColor: props.backgroundColor || "#FFFFFF",
                     color: props.textColor || "#0F172A",
@@ -456,7 +467,7 @@ export function ConstructorPreview({
               return (
                 <section
                   key={section.id}
-                  onClick={() => setSelectedSectionId(section.id)}
+                  onClick={() => handleSelectSection(section.id)}
                   style={{
                     backgroundColor: props.backgroundColor || "#FFFFFF",
                     color: props.textColor || "#0F172A",
@@ -534,7 +545,7 @@ export function ConstructorPreview({
               return (
                 <section
                   key={section.id}
-                  onClick={() => setSelectedSectionId(section.id)}
+                  onClick={() => handleSelectSection(section.id)}
                   style={{
                     backgroundColor: props.backgroundColor || "#FFFFFF",
                     color: props.textColor || "#0F172A",
@@ -598,7 +609,7 @@ export function ConstructorPreview({
               return (
                 <footer
                   key={section.id}
-                  onClick={() => setSelectedSectionId(section.id)}
+                  onClick={() => handleSelectSection(section.id)}
                   style={{
                     backgroundColor: props.backgroundColor || "#0F172A",
                     color: props.textColor || "#94A3B8",

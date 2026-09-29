@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
-import { Upload, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Upload, Plus, Trash2, ArrowUp, ArrowDown, ArrowLeft, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { uploadToCloudinary } from "@/lib/cloudinary";
+import { ConstructorAgentPanel } from "./ConstructorAgentPanel";
 
 interface ConstructorRightPanelProps {
   storeConfig: any;
@@ -13,6 +14,9 @@ interface ConstructorRightPanelProps {
   setSelectedSectionId: (id: string) => void;
   showRightPanel: boolean;
   setShowRightPanel: (show: boolean) => void;
+  panelMode?: "section" | "agent";
+  setPanelMode?: (mode: "section" | "agent") => void;
+  activeStore?: any;
   token: string | null;
   cloudinaryConfig: {
     cloudName: string;
@@ -29,10 +33,15 @@ interface ConstructorRightPanelProps {
 
 export function ConstructorRightPanel({
   storeConfig,
+  setStoreConfig,
   activePageId,
   selectedSectionId,
+  setSelectedSectionId,
   showRightPanel,
   setShowRightPanel,
+  panelMode = "section",
+  setPanelMode,
+  activeStore,
   token,
   cloudinaryConfig,
   handlePropertyChange,
@@ -42,47 +51,173 @@ export function ConstructorRightPanel({
   handleDeleteBlock,
   handleBlockFieldChange
 }: ConstructorRightPanelProps) {
-  if (selectedSectionId === "theme-settings") {
+  if (selectedSectionId === "theme-settings" && panelMode !== "agent") {
     return null; // The Left Panel handles design settings
   }
 
   const currentPage = storeConfig.pages.find((p: any) => p.id === activePageId) || storeConfig.pages[0];
   const currentSection = currentPage.sections.find((s: any) => s.id === selectedSectionId);
 
-  if (!currentSection) {
-    return (
-      <div className={`
-        rounded-xl border border-slate-900 bg-slate-955/40 p-5 flex flex-col items-center justify-center text-slate-500 transition-all duration-300
-        xl:w-80 xl:static xl:flex xl:h-auto
-        fixed inset-y-0 right-0 z-40 w-80 bg-slate-955 border-l shadow-2xl h-[100dvh] max-h-[100dvh]
-        ${showRightPanel ? "flex translate-x-0" : "hidden xl:flex translate-x-full xl:translate-x-0"}
-      `}>
-        <p className="text-xs">Ninguna sección seleccionada</p>
-      </div>
-    );
-  }
+  const isAgentMode = panelMode === "agent";
+  const isOpen = showRightPanel && (isAgentMode || Boolean(currentSection));
+  const props = currentSection?.properties || {};
 
-  const props = currentSection.properties || {};
+  const [panelWidth, setPanelWidth] = useState<number>(440);
+  const [isResizing, setIsResizing] = useState<boolean>(false);
+  const isResizingRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      const newWidth = window.innerWidth - e.clientX;
+      const minWidth = 360;
+      const maxWidth = Math.min(window.innerWidth * 0.9, 950);
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        setPanelWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isResizingRef.current) {
+        isResizingRef.current = false;
+        setIsResizing(false);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
+  const handleMouseDownResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRef.current = true;
+    setIsResizing(true);
+    document.body.style.cursor = "ew-resize";
+    document.body.style.userSelect = "none";
+  };
+
+  const handleClose = () => {
+    setShowRightPanel(false);
+    setSelectedSectionId("");
+    if (setPanelMode) setPanelMode("section");
+  };
+
+  const handleBack = () => {
+    setSelectedSectionId("");
+    setShowRightPanel(false);
+    if (setPanelMode) setPanelMode("section");
+  };
 
   return (
     <>
-      {showRightPanel && (
-        <div className="fixed inset-0 z-35 bg-black/60 backdrop-blur-xs xl:hidden animate-fade-in" onClick={() => setShowRightPanel(false)} />
+      {/* Backdrop overlay on smaller screens */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-45 bg-black/60 xl:hidden animate-fade-in"
+          onClick={handleClose}
+        />
       )}
-      <div className={`
-        rounded-xl border border-slate-900 bg-slate-955/40 p-5 flex-col gap-5 overflow-y-auto sidebar-scrollbar select-none transition-all duration-300 text-left
-        xl:w-80 xl:static xl:flex xl:h-auto xl:max-h-none
-        fixed inset-y-0 right-0 z-40 w-80 bg-slate-950/95 border-l shadow-2xl h-[100dvh] max-h-[100dvh]
-        ${showRightPanel ? "flex translate-x-0" : "hidden xl:flex translate-x-full xl:translate-x-0"}
-      `}>
-        <div className="flex items-center justify-between border-b border-slate-900/50 pb-2">
-          <span className="text-xs font-black text-[#22D3A6] tracking-wide uppercase">
-            {currentSection.name}
-          </span>
-          <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-900 text-slate-500">
-            #{currentSection.id}
-          </span>
+
+      {/* Floating Overlay Drawer */}
+      <div
+        style={{
+          width: isOpen ? `${panelWidth}px` : undefined,
+          maxWidth: "92vw",
+        }}
+        className={`
+          fixed inset-y-0 right-0 z-50
+          bg-slate-950 border-l border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8)]
+          flex flex-col p-5 gap-5 overflow-y-auto sidebar-scrollbar select-none
+          text-left
+          ${isResizing ? "" : "transition-transform duration-300 ease-in-out"}
+          ${isOpen ? "translate-x-0" : "translate-x-full pointer-events-none"}
+        `}
+      >
+        {/* Resize Handle on the left border */}
+        <div
+          onMouseDown={handleMouseDownResize}
+          className="absolute top-0 bottom-0 left-0 w-3 -translate-x-1/2 cursor-ew-resize hover:bg-[#22D3A6]/40 active:bg-[#22D3A6] transition-colors z-50 group flex items-center justify-center"
+          title="Arrastra hacia la izquierda para expandir el panel"
+        >
+          <div className="w-1 h-12 rounded-full bg-slate-700/60 group-hover:bg-[#22D3A6] group-active:bg-[#22D3A6] transition-colors" />
         </div>
+
+        {isAgentMode ? (
+          <div className="flex-1 flex flex-col min-h-0 h-full">
+            {/* Header for Agent in Right Panel */}
+            <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition-all border-none bg-transparent cursor-pointer"
+                  title="Volver"
+                >
+                  <ArrowLeft size={16} />
+                </button>
+                <h4 className="text-sm font-bold text-white leading-tight">Agente</h4>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleClose}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-900 transition-all border-none bg-transparent cursor-pointer"
+                title="Cerrar panel de Agente"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Agent Chat Body */}
+            <div className="flex-1 min-h-0 flex flex-col">
+              <ConstructorAgentPanel
+                storeConfig={storeConfig}
+                setStoreConfig={setStoreConfig}
+                activeStore={activeStore}
+                token={token}
+              />
+            </div>
+          </div>
+        ) : currentSection ? (
+          <>
+              {/* Header with Back Arrow and Close X */}
+              <div className="flex items-center justify-between border-b border-slate-900 pb-3 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition-all border-none bg-transparent cursor-pointer shrink-0"
+                    title="Volver"
+                  >
+                    <ArrowLeft size={16} />
+                  </button>
+                  <div className="min-w-0">
+                    <span className="text-xs font-black text-[#22D3A6] tracking-wide uppercase truncate block">
+                      {currentSection.name}
+                    </span>
+                    <span className="text-[9px] font-mono text-slate-500 uppercase">
+                      #{currentSection.id}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-900 transition-all border-none bg-transparent cursor-pointer"
+                    title="Cerrar panel de configuración"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
 
         {/* ANNOUNCEMENT PROPERTIES */}
         {currentSection.type === "announcement" && (
@@ -523,6 +658,17 @@ export function ConstructorRightPanel({
             </div>
 
             <div className="flex flex-col gap-1.5">
+              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Subtítulo</label>
+              <input
+                type="text"
+                value={props.subtitle || ""}
+                onChange={(e) => handlePropertyChange("subtitle", e.target.value)}
+                placeholder="Ej. Los artículos más destacados"
+                className="h-10 px-4 rounded-xl border border-slate-800 bg-slate-955 text-slate-300 text-xs outline-none focus:border-[#22D3A6]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
               <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Diseño del Catálogo</label>
               <div className="grid grid-cols-2 gap-2 bg-slate-955/45 p-1 rounded-xl border border-slate-900">
                 {[
@@ -929,6 +1075,8 @@ export function ConstructorRightPanel({
             </button>
           </div>
         )}
+          </>
+        ) : null}
       </div>
     </>
   );

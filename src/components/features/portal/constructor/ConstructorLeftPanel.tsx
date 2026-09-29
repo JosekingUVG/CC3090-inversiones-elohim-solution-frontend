@@ -10,7 +10,18 @@ import {
   Settings,
   X,
   Upload,
-  Download
+  Download,
+  Sparkles,
+  ArrowLeft,
+  Save,
+  Eye,
+  History,
+  Undo2,
+  Redo2,
+  Monitor,
+  Tablet,
+  Smartphone,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { PortalModal } from "@/components/ui/PortalModal";
@@ -38,12 +49,27 @@ interface ConstructorLeftPanelProps {
   newSectionType: string;
   setNewSectionType: (type: string) => void;
   activeStore: any;
+  token?: string | null;
   handleCreatePage: (e: React.FormEvent) => void;
   handleAddSection: (e: React.FormEvent) => void;
   handleDeletePage: (id: string) => void;
   handleDragStart: (e: React.DragEvent, id: string) => void;
   handleDragOver: (e: React.DragEvent, id: string) => void;
   handleDrop: (e: React.DragEvent, targetId: string) => void;
+
+  // Header options relocated to Left Sidebar
+  onNavigateBack?: () => void;
+  handlePublishConfig?: () => void;
+  isPublishingConfig?: boolean;
+  undo?: () => void;
+  redo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  setShowHistoryPanel?: (open: boolean) => void;
+  previewDevice?: "desktop" | "tablet" | "mobile";
+  setPreviewDevice?: (dev: "desktop" | "tablet" | "mobile") => void;
+  setShowRightPanel?: (show: boolean) => void;
+  onOpenAgent?: () => void;
 }
 
 export function ConstructorLeftPanel({
@@ -69,12 +95,25 @@ export function ConstructorLeftPanel({
   newSectionType,
   setNewSectionType,
   activeStore,
+  token,
   handleCreatePage,
   handleAddSection,
   handleDeletePage,
   handleDragStart,
   handleDragOver,
-  handleDrop
+  handleDrop,
+  onNavigateBack,
+  handlePublishConfig,
+  isPublishingConfig,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
+  setShowHistoryPanel,
+  previewDevice = "desktop",
+  setPreviewDevice,
+  setShowRightPanel,
+  onOpenAgent
 }: ConstructorLeftPanelProps) {
   const theme = storeConfig.theme || {
     backgroundColor: "#F8FAFC",
@@ -154,43 +193,192 @@ export function ConstructorLeftPanel({
   return (
     <>
       {showLeftPanel && (
-        <div className="fixed inset-0 z-35 bg-black/60 backdrop-blur-xs xl:hidden animate-fade-in" onClick={() => setShowLeftPanel(false)} />
+        <div className="fixed inset-0 z-35 bg-black/60 xl:hidden animate-fade-in" onClick={() => setShowLeftPanel(false)} />
       )}
       <div className={`
-        rounded-xl border border-slate-900 bg-slate-955/40 p-4 flex-col gap-4 overflow-y-auto sidebar-scrollbar select-none transition-all duration-300
-        xl:w-64 xl:static xl:flex xl:h-auto xl:max-h-none
-        fixed inset-y-0 left-0 z-40 w-72 bg-slate-950/95 border-r shadow-2xl h-[100dvh] max-h-[100dvh]
+        rounded-2xl border border-slate-900 bg-slate-955 p-4 flex flex-col gap-3.5 overflow-y-auto sidebar-scrollbar select-none transition-all duration-300
+        w-80 xl:w-80 shrink-0 xl:static xl:flex xl:h-auto xl:max-h-none
+        fixed inset-y-0 left-0 z-40 bg-slate-950 border-r border-slate-900 shadow-2xl h-[100dvh] max-h-[100dvh]
         ${showLeftPanel ? "flex translate-x-0" : "hidden xl:flex -translate-x-full xl:translate-x-0"}
       `}>
-        {/* Left Tab Switcher */}
-        <div className="grid grid-cols-2 gap-2 bg-slate-900/60 p-1 rounded-xl border border-slate-900 shrink-0">
+        {/* Top Control Center: Portal Back & Active Store */}
+        <div className="flex items-center justify-between border-b border-slate-900/80 pb-3 shrink-0">
           <button
+            type="button"
+            onClick={onNavigateBack}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-800 transition-all cursor-pointer"
+            title="Volver al Portal"
+          >
+            <ArrowLeft size={13} />
+            <span>Volver</span>
+          </button>
+
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className="w-2 h-2 rounded-full bg-[#22D3A6] animate-pulse shrink-0" />
+            <span className="text-xs font-black text-white truncate max-w-[130px]">
+              {activeStore?.nombre || "Constructor"}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowLeftPanel(false)}
+            className="xl:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition-all border-none bg-transparent cursor-pointer"
+            title="Cerrar menú"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Primary CTA: Guardar y Publicar */}
+        <div className="flex flex-col gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handlePublishConfig}
+            disabled={isPublishingConfig}
+            className="w-full h-10 rounded-xl bg-linear-to-r from-[#22D3A6] to-[#38BDF8] text-slate-950 text-xs font-black shadow-[0_4px_15px_rgba(34,211,166,0.2)] hover:brightness-110 active:scale-[0.99] cursor-pointer border-none transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isPublishingConfig ? (
+              <>
+                <Loader2 className="animate-spin" size={15} />
+                <span>Publicando cambios...</span>
+              </>
+            ) : (
+              <>
+                <Save size={15} />
+                <span>Guardar y Publicar</span>
+              </>
+            )}
+          </button>
+
+          {/* Secondary Actions: Ver Tienda Live & Historial */}
+          <div className="grid grid-cols-2 gap-2">
+            <a
+              href={activeStore?.slug ? `https://${activeStore.slug}.${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "dmhub.fun"}` : `/preview/${activeStore?.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="h-8 px-2 rounded-xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 no-underline"
+              title="Ver Tienda Completa en Vivo"
+            >
+              <Eye size={13} className="text-[#38BDF8]" />
+              <span>Ver Tienda</span>
+            </a>
+
+            <button
+              type="button"
+              onClick={() => setShowHistoryPanel?.(true)}
+              className="h-8 px-2 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-850 text-slate-300 hover:text-white text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              title="Historial de versiones"
+            >
+              <History size={13} className="text-[#38BDF8]" />
+              <span>Historial</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Utilities Bar: Undo/Redo + Viewport Device Switcher */}
+        <div className="flex items-center justify-between p-1.5 rounded-xl border border-slate-900 bg-slate-900/50 shrink-0">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={undo}
+              disabled={!canUndo}
+              title="Deshacer (Ctrl+Z)"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 bg-transparent border-none cursor-pointer transition-colors"
+            >
+              <Undo2 size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={redo}
+              disabled={!canRedo}
+              title="Rehacer (Ctrl+Y)"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 bg-transparent border-none cursor-pointer transition-colors"
+            >
+              <Redo2 size={14} />
+            </button>
+          </div>
+
+          <div className="h-4 w-px bg-slate-800" />
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPreviewDevice?.("desktop")}
+              className={`p-1.5 rounded-lg cursor-pointer border-none transition-all ${
+                previewDevice === "desktop" ? "bg-[#22D3A6] text-slate-950 font-bold shadow-xs" : "text-slate-400 hover:text-white bg-transparent"
+              }`}
+              title="Vista Escritorio"
+            >
+              <Monitor size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewDevice?.("tablet")}
+              className={`p-1.5 rounded-lg cursor-pointer border-none transition-all ${
+                previewDevice === "tablet" ? "bg-[#22D3A6] text-slate-950 font-bold shadow-xs" : "text-slate-400 hover:text-white bg-transparent"
+              }`}
+              title="Vista Tableta"
+            >
+              <Tablet size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewDevice?.("mobile")}
+              className={`p-1.5 rounded-lg cursor-pointer border-none transition-all ${
+                previewDevice === "mobile" ? "bg-[#22D3A6] text-slate-950 font-bold shadow-xs" : "text-slate-400 hover:text-white bg-transparent"
+              }`}
+              title="Vista Móvil"
+            >
+              <Smartphone size={14} />
+            </button>
+          </div>
+        </div>
+
+        {/* Botón Agente */}
+        <button
+          type="button"
+          onClick={() => onOpenAgent?.()}
+          className="w-full h-10 px-3.5 rounded-xl text-xs font-bold cursor-pointer border border-[#22D3A6]/40 bg-slate-900/80 hover:bg-[#22D3A6]/10 text-white hover:border-[#22D3A6] transition-all flex items-center justify-center gap-2 shrink-0 shadow-sm group"
+          title="Agente"
+        >
+          <Sparkles size={14} className="text-[#22D3A6] group-hover:rotate-12 transition-transform" />
+          <span className="font-bold text-white group-hover:text-[#22D3A6] transition-colors">Agente</span>
+        </button>
+
+        {/* 2-column Tab Switcher: Secciones / Diseño */}
+        <div className="grid grid-cols-2 gap-1 bg-slate-900/60 p-1 rounded-xl border border-slate-900 shrink-0">
+          <button
+            type="button"
             onClick={() => {
               setLeftTab("sections");
               if (currentPage?.sections?.length > 0) {
                 setSelectedSectionId(currentPage.sections[0].id);
+                setShowRightPanel?.(true);
               }
             }}
-            className={`py-1.5 rounded-lg text-[10px] font-bold cursor-pointer border-none transition-all ${
+            className={`py-1.5 rounded-lg text-xs font-bold cursor-pointer border-none transition-all ${
               leftTab === "sections" ? "bg-slate-800 text-white shadow-md" : "text-slate-400 hover:text-white bg-transparent"
             }`}
           >
             Secciones
           </button>
           <button
+            type="button"
             onClick={() => {
               setLeftTab("theme");
               setSelectedSectionId("theme-settings");
+              setShowRightPanel?.(false);
             }}
-            className={`py-1.5 rounded-lg text-[10px] font-bold cursor-pointer border-none transition-all ${
+            className={`py-1.5 rounded-lg text-xs font-bold cursor-pointer border-none transition-all ${
               leftTab === "theme" ? "bg-slate-800 text-white shadow-md" : "text-slate-400 hover:text-white bg-transparent"
             }`}
           >
-            Diseño Global
+            Diseño
           </button>
         </div>
 
-        {leftTab === "sections" ? (
+        {leftTab === "sections" && (
           <>
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-900 pb-2 text-left">
               Estructura de la Tienda
@@ -203,7 +391,10 @@ export function ConstructorLeftPanel({
                 return (
                   <div
                     key={section.id}
-                    onClick={() => setSelectedSectionId(section.id)}
+                    onClick={() => {
+                      setSelectedSectionId(section.id);
+                      setShowRightPanel?.(true);
+                    }}
                     draggable={!isShared}
                     onDragStart={(e) => handleDragStart(e, section.id)}
                     onDragOver={(e) => handleDragOver(e, section.id)}
@@ -229,15 +420,16 @@ export function ConstructorLeftPanel({
             </div>
             
             <button
+              type="button"
               onClick={() => setIsAddSectionModalOpen(true)}
-              className="w-full h-9 flex items-center justify-center gap-1.5 text-[9px] font-bold text-[#22D3A6]/80 hover:text-[#22D3A6] border border-dashed border-[#22D3A6]/30 hover:border-[#22D3A6]/60 bg-transparent rounded-xl cursor-pointer transition-all uppercase tracking-wider"
+              className="w-full h-11 my-4 flex items-center justify-center gap-2 text-xs font-bold text-[#22D3A6] hover:text-white border border-dashed border-[#22D3A6]/40 hover:border-[#22D3A6] bg-[#22D3A6]/5 hover:bg-[#22D3A6]/15 rounded-xl cursor-pointer transition-all uppercase tracking-wide"
             >
-              <Plus size={12} />
+              <Plus size={15} />
               <span>Agregar Sección</span>
             </button>
 
             {/* Pages Management Section */}
-            <div className="border-t border-slate-900 pt-4 mt-2 space-y-3">
+            <div className="border-t border-slate-900 pt-5 mt-4 space-y-3">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block text-left">
                 Páginas del Sitio
               </span>
@@ -245,35 +437,57 @@ export function ConstructorLeftPanel({
                 {storeConfig.pages.map((p: any) => {
                   const isActive = p.id === activePageId;
                   return (
-                    <button
+                    <div
                       key={p.id}
                       onClick={() => {
                         setActivePageId(p.id);
                         if (p.sections.length > 0) {
                           setSelectedSectionId(p.sections[0].id);
+                          setShowRightPanel?.(true);
                         }
                       }}
-                      className={`flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl transition-all text-left border-none cursor-pointer w-full ${
+                      className={`flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer w-full ${
                         isActive ? "text-[#22D3A6] bg-slate-900/60" : "text-slate-400 hover:bg-slate-900/20 hover:text-white bg-transparent"
                       }`}
                     >
-                      <FileText size={12} className={isActive ? "text-[#22D3A6]" : "text-slate-500"} />
-                      <span className="truncate flex-1">{p.name}</span>
-                      {p.isHome && <span className="text-[8px] font-bold text-slate-500 bg-slate-900 px-1 py-0.5 rounded">HOME</span>}
-                    </button>
+                      <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                        <FileText size={12} className={isActive ? "text-[#22D3A6]" : "text-slate-500"} />
+                        <span className="truncate">{p.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {p.isHome ? (
+                          <span className="text-[8px] font-bold text-slate-500 bg-slate-900 px-1 py-0.5 rounded">HOME</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeletePage(p.id);
+                            }}
+                            className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors border-none bg-transparent cursor-pointer"
+                            title="Eliminar página"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
               <button
+                type="button"
                 onClick={() => setIsCreatePageModalOpen(true)}
-                className="w-full h-9 flex items-center justify-center gap-1.5 text-[9px] font-bold text-[#38BDF8]/80 hover:text-[#38BDF8] border border-dashed border-[#38BDF8]/30 hover:border-[#38BDF8]/60 bg-transparent rounded-xl cursor-pointer transition-all uppercase tracking-wider"
+                className="w-full h-10 flex items-center justify-center gap-2 text-xs font-bold text-[#38BDF8] hover:text-white border border-dashed border-[#38BDF8]/40 hover:border-[#38BDF8] bg-[#38BDF8]/5 hover:bg-[#38BDF8]/15 rounded-xl cursor-pointer transition-all uppercase tracking-wide"
               >
-                <FilePlus size={12} />
+                <FilePlus size={15} />
                 <span>Agregar Página</span>
               </button>
             </div>
           </>
-        ) : (
+        )}
+
+        {leftTab === "theme" && (
           <div className="flex flex-col gap-3 text-left">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-900 pb-2">
               Tema y Apariencia
