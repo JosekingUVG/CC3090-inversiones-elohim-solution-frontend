@@ -7,7 +7,7 @@ import { useClientAuthStore } from "@/stores/useClientAuthStore";
 import { useCarrito } from "@/hooks/useCarrito";
 import { agregarArticuloCarrito } from "@/lib/api/carrito";
 import { getTiendaPorIdOSlug, TiendaDto } from "@/lib/api/admin";
-import { obtenerProductoPorId } from "@/lib/api/productos";
+import { obtenerProductoPorId, TProductoDetalle } from "@/lib/api/productos";
 import { 
   ArrowLeft, 
   ShoppingCart, 
@@ -26,13 +26,12 @@ import {
 import { toast } from "sonner";
 import { ClientAuthModal } from "@/components/features/auth/ClientAuthModal";
 import { StorefrontCartDrawer } from "@/components/features/carrito/StorefrontCartDrawer";
-import type { TProducto } from "@/types";
 
 export default function ClientProductDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const storeId = params.id as string;
-  const productId = params.productId as string;
+  const storeId = (params?.id as string) || "";
+  const productId = (params?.productId as string) || "";
 
   // Store metadata & styling config
   const [store, setStore] = useState<TiendaDto | null>(null);
@@ -40,7 +39,7 @@ export default function ClientProductDetailPage() {
   const [loadingStore, setLoadingStore] = useState(true);
 
   // Product detail states
-  const [product, setProduct] = useState<TProducto | null>(null);
+  const [product, setProduct] = useState<TProductoDetalle | null>(null);
   const [loadingProduct, setLoadingProduct] = useState(true);
   const [quantity, setQuantity] = useState(1);
 
@@ -55,6 +54,7 @@ export default function ClientProductDetailPage() {
   const clientUser = useClientAuthStore((state) => state.cliente);
   const clientToken = useClientAuthStore((state) => state.token);
   const isClientAuthenticated = useClientAuthStore((state) => state.isAuthenticated);
+  const selectTenant = useClientAuthStore((state) => state.selectTenant);
 
   // Fetch Cart metadata
   const { items: cartItems, mutate: mutateCart } = useCarrito();
@@ -65,56 +65,64 @@ export default function ClientProductDetailPage() {
 
   // Load store config & product details
   useEffect(() => {
-    const fetchStore = async () => {
+    let isCancelled = false;
+
+    const loadData = async () => {
       try {
         setLoadingStore(true);
-        const data = await getTiendaPorIdOSlug(storeId);
-        setStore(data);
-        if (data.configuracionVisual) {
+        setLoadingProduct(true);
+
+        const storeData = await getTiendaPorIdOSlug(storeId, clientToken || undefined);
+        if (isCancelled) return;
+        setStore(storeData);
+
+        if (storeData.id) {
+          window.localStorage.setItem("active_tenant_id", storeData.id);
+          selectTenant(storeData.id);
+        }
+
+        if (storeData.configuracionVisual) {
           try {
-            const config = typeof data.configuracionVisual === "string"
-              ? JSON.parse(data.configuracionVisual)
-              : data.configuracionVisual;
+            const config = typeof storeData.configuracionVisual === "string"
+              ? JSON.parse(storeData.configuracionVisual)
+              : storeData.configuracionVisual;
             setVisualConfig(config);
           } catch (e) {
             console.error("Error parsing visual config", e);
           }
         }
-      } catch (err) {
-        console.error("Error loading store metadata", err);
-        toast.error("Error al cargar la tienda");
-      } finally {
         setLoadingStore(false);
-      }
-    };
 
-    if (storeId) {
-      void fetchStore();
-    }
-  }, [storeId]);
-
-  useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        setLoadingProduct(true);
-        const data = await obtenerProductoPorId(productId);
-        setProduct(data);
+        const productData = await obtenerProductoPorId(
+          productId,
+          storeData.id || storeId,
+          clientToken || undefined
+        );
+        if (isCancelled) return;
+        setProduct(productData);
       } catch (err) {
-        console.error("Error loading product details", err);
-        toast.error("Error al cargar detalles del producto");
+        console.error("Error loading product detail page", err);
       } finally {
-        setLoadingProduct(false);
+        if (!isCancelled) {
+          setLoadingStore(false);
+          setLoadingProduct(false);
+        }
       }
     };
 
-    if (productId) {
-      void fetchProduct();
+    if (storeId && productId) {
+      void loadData();
     }
-  }, [productId]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [storeId, productId, clientToken, selectTenant]);
 
   useEffect(() => {
-    if (product?.nombreProducto && store?.nombre) {
-      document.title = `${product.nombreProducto} – ${store.nombre}`;
+    const prodName = product?.nombre || product?.nombreProducto;
+    if (prodName && store?.nombre) {
+      document.title = `${prodName} – ${store.nombre}`;
     } else {
       document.title = "Detalle del Producto";
     }
@@ -151,7 +159,7 @@ export default function ClientProductDetailPage() {
     setIsAddingToCart(true);
     try {
       await agregarArticuloCarrito(clientToken || "", { 
-        productoId: product.idProducto, 
+        productoId: product.id || product.idProducto, 
         cantidad: quantity 
       });
       toast.success("Producto agregado al carrito.");
@@ -164,8 +172,10 @@ export default function ClientProductDetailPage() {
     }
   };
 
+  const productStock = product?.stockTotal ?? product?.stockActual ?? 0;
+
   const incrementQty = () => {
-    if (product && quantity < product.stockActual) {
+    if (product && quantity < productStock) {
       setQuantity(quantity + 1);
     }
   };
@@ -315,7 +325,7 @@ export default function ClientProductDetailPage() {
               Inicio
             </Link>
             <ChevronRight size={12} />
-            <span className="truncate max-w-[200px]">{product.nombreProducto}</span>
+            <span className="truncate max-w-[200px]">{product.nombre || product.nombreProducto}</span>
           </div>
 
           <Link 
@@ -339,8 +349,8 @@ export default function ClientProductDetailPage() {
           {/* Left Column: Product Image */}
           <div className="w-full md:w-1/2 aspect-square rounded-2xl overflow-hidden bg-slate-50 border border-slate-150 flex items-center justify-center relative group">
             <img 
-              src={product.imagenPrincipal || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80"} 
-              alt={product.nombreProducto} 
+              src={product.imagenUrl || product.imagenPrincipal || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80"} 
+              alt={product.nombre || product.nombreProducto} 
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-102"
             />
             <span className="absolute top-4 left-4 px-2 py-0.5 rounded bg-slate-900/90 text-white text-[9px] font-black tracking-wider uppercase flex items-center gap-1">
@@ -357,7 +367,7 @@ export default function ClientProductDetailPage() {
                 <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[9px] font-extrabold uppercase">
                   Categoría ID: {product.categoriaId || "General"}
                 </span>
-                {product.stockActual > 0 ? (
+                {productStock > 0 ? (
                   <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 text-[9px] font-extrabold uppercase border border-emerald-100">
                     En Stock
                   </span>
@@ -370,13 +380,13 @@ export default function ClientProductDetailPage() {
 
               {/* Product Name */}
               <h1 className="text-2xl md:text-3xl font-black tracking-tight leading-tight">
-                {product.nombreProducto}
+                {product.nombre || product.nombreProducto}
               </h1>
 
               {/* Price Tag */}
               <div className="py-2 border-b border-slate-100/50">
                 <span style={{ color: storePrimaryColor }} className="text-3xl font-black">
-                  Q {product.precio.toLocaleString("es-GT", { minimumFractionDigits: 2 })}
+                  Q {((product.precioDetalle ?? product.precio ?? 0) as number).toLocaleString("es-GT", { minimumFractionDigits: 2 })}
                 </span>
               </div>
 
@@ -392,7 +402,7 @@ export default function ClientProductDetailPage() {
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100/50">
                 <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
                   <Package size={14} className="text-slate-400" />
-                  <span>Código: {product.codigoProducto}</span>
+                  <span>Código: {product.sku || product.codigoProducto || "N/A"}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
                   <ShieldCheck size={14} className="text-slate-400" />
@@ -402,7 +412,7 @@ export default function ClientProductDetailPage() {
             </div>
 
             {/* Actions Block */}
-            {product.stockActual > 0 ? (
+            {productStock > 0 ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
                   {/* Quantity selector */}
@@ -429,7 +439,7 @@ export default function ClientProductDetailPage() {
 
                   <div className="flex-1 flex flex-col justify-end gap-1.5 pt-5">
                     <span className="text-[9px] text-slate-400 font-bold uppercase select-none">
-                      Disponibles: {product.stockActual} unidades
+                      Disponibles: {productStock} unidades
                     </span>
                   </div>
                 </div>
@@ -495,7 +505,7 @@ export default function ClientProductDetailPage() {
           setAuthModalTab("login");
           setIsAuthModalOpen(true);
         }}
-        products={product ? [{ id: product.idProducto, imagenUrl: product.imagenPrincipal || null }] : []}
+        products={product ? [{ id: product.id || product.idProducto, imagenUrl: product.imagenUrl || product.imagenPrincipal || null }] : []}
       />
     </div>
   );
