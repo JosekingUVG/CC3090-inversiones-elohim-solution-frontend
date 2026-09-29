@@ -2,9 +2,8 @@
 
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { changedPageIds, serializeDesign } from "@/lib/constructor/unsaved-changes";
 import { useEffect, useRef, useState } from "react";
+import { changedPageIds, serializeDesign } from "@/lib/constructor/unsaved-changes";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -47,13 +46,22 @@ export default function ConstructorPage() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const token = useAuthStore((state) => state.token);
   const router = useRouter();
+  const historyApi = useStoreBuilderHistory<any>();
+  const {
+    configuracion: storeConfig,
+    setConfiguracion: setStoreConfig,
+    reset: resetHistory,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = historyApi;
 
   // Stores states
   const [tiendas, setTiendas] = useState<TiendaDto[]>([]);
   const [activeStore, setActiveStore] = useState<TiendaDto | null>(null);
 
   // Store Builder State
-  const [storeConfig, setStoreConfig] = useState<any>(null);
   const [savedDesign, setSavedDesign] = useState<string | null>(null);
   const hasUnsavedChanges = storeConfig !== null && savedDesign !== null && serializeDesign(storeConfig) !== savedDesign;
   const dirtyPageIds = changedPageIds(storeConfig?.pages ?? [], savedDesign);
@@ -83,16 +91,6 @@ export default function ConstructorPage() {
     };
   }, [hasUnsavedChanges]);
 
-  const historyApi = useStoreBuilderHistory<any>();
-  const {
-    configuracion: storeConfig,
-    setConfiguracion: setStoreConfig,
-    reset: resetHistory,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-  } = historyApi;
   const [persistedHistory, setPersistedHistory] = useState<ConfiguracionHistorialDto[]>([]);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [selectedHistoryVersion, setSelectedHistoryVersion] = useState<ConfiguracionHistorialDto | null>(null);
@@ -919,7 +917,7 @@ export default function ConstructorPage() {
                   </div>
                 </div>
                 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3 xl:flex-1 xl:justify-end">
                   {/* Active Page Selector */}
                   <div className="flex items-center gap-2 bg-slate-955/65 px-3 py-1.5 rounded-xl border border-slate-900">
                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Editar Página:</span>
@@ -1037,27 +1035,29 @@ export default function ConstructorPage() {
                     <span>Ver Tienda (Live)</span>
                   </a>
 
-                  <span role="status" className={`flex items-center gap-2 text-xs font-semibold ${hasUnsavedChanges ? "text-amber-400" : "text-slate-400"}`}>
-                    {hasUnsavedChanges && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-amber-400" />}
-                    {hasUnsavedChanges ? "Cambios sin guardar" : "Sin cambios pendientes"}
-                  </span>
-                  <button
-                    onClick={handlePublishConfig}
-                    disabled={isPublishingConfig}
-                    className="h-10 px-5 rounded-xl bg-gradient-to-r from-[#22D3A6] to-[#38BDF8] text-slate-955 text-xs font-black shadow-[0_4px_15px_rgba(34,211,166,0.2)] hover:brightness-110 cursor-pointer border-none transition-all flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {isPublishingConfig ? (
-                      <>
-                        <Loader2 className="animate-spin" size={15} />
-                        <span>Publicando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save size={15} />
-                        <span>Guardar y Publicar</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="ml-auto flex shrink-0 items-center gap-3">
+                    <span role="status" className={`flex items-center gap-2 whitespace-nowrap text-xs font-semibold ${hasUnsavedChanges ? "text-amber-400" : "text-slate-400"}`}>
+                      {hasUnsavedChanges && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-amber-400" />}
+                      {hasUnsavedChanges ? "Cambios sin guardar" : "Sin cambios pendientes"}
+                    </span>
+                    <button
+                      onClick={handlePublishConfig}
+                      disabled={isPublishingConfig}
+                      className="flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-[#22D3A6] to-[#38BDF8] px-5 text-xs font-black text-slate-955 shadow-[0_4px_15px_rgba(34,211,166,0.2)] transition-all hover:brightness-110 disabled:opacity-50"
+                    >
+                      {isPublishingConfig ? (
+                        <>
+                          <Loader2 className="animate-spin" size={15} />
+                          <span>Publicando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save size={15} />
+                          <span>Guardar y Publicar</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
