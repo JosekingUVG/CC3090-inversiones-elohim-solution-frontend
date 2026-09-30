@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getPostLoginPath } from "@/lib/auth-routes";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useLandingAnimations } from "@/hooks/useLandingAnimations";
+import { Store, Package, Lock, BarChart3, Paintbrush, UserPlus, Settings, Rocket, Shield, Headphones, ShoppingBag, Thermometer, Wifi, Smartphone, Factory, Truck, Zap, Check } from "lucide-react";
 
 // ─── Theme palette for the store simulator ───────────────────────────────────
 const THEMES = [
@@ -14,45 +15,67 @@ const THEMES = [
   { name: "Dorado Industrial", color: "#facc15", bg: "#ca8a04" },
 ];
 
+// ─── Icon map for features ────────────────────────────────────────────────────
+const ICON_MAP: Record<string, React.ReactNode> = {
+  store: <Store className="w-full h-full" />,
+  package: <Package className="w-full h-full" />,
+  lock: <Lock className="w-full h-full" />,
+  chart: <BarChart3 className="w-full h-full" />,
+  brush: <Paintbrush className="w-full h-full" />,
+  user: <UserPlus className="w-full h-full" />,
+  settings: <Settings className="w-full h-full" />,
+  rocket: <Rocket className="w-full h-full" />,
+  shield: <Shield className="w-full h-full" />,
+  headphones: <Headphones className="w-full h-full" />,
+  bag: <ShoppingBag className="w-full h-full" />,
+  thermometer: <Thermometer className="w-full h-full" />,
+  wifi: <Wifi className="w-full h-full" />,
+  phone: <Smartphone className="w-full h-full" />,
+  factory: <Factory className="w-full h-full" />,
+  truck: <Truck className="w-full h-full" />,
+  zap: <Zap className="w-full h-full" />,
+  check: <Check className="w-full h-full" />,
+};
+
 // ─── Feature cards data ───────────────────────────────────────────────────────
 const FEATURES = [
-  { icon: "🏪", title: "Multi-tienda Unificada", color: "#50f0c1", link: "Configuración de suscursales", desc: "Gestiona múltiples sucursales y cajeros desde un solo panel. Separa marcas, territorios y bodegas sin duplicar datos." },
-  { icon: "📦", title: "Control de Catálogo", color: "#7bd0ff", link: "Control del Catálogo", desc: "Importación masiva de productos en segundos y asignación a sucursales según el volumen de ventas." },
-  { icon: "🔐", title: "Control de Acceso", color: "#d2d4ff", link: "Roles personalizados", desc: "Define permisos quirúrgicos: Administrador global, Cajero regional con trazabilidad total de auditoría." },
-  { icon: "📊", title: "Reportes en Tiempo Real", color: "#22d3a6", link: "Telemetría y exportación BI", desc: "Visualiza inventarios estancados y rendimiento a través de dashboards predictivos con filtros instantáneos." },
-  { icon: "🎨", title: "Temas Personalizables", color: "#c4e7ff", link: "Motor de contructor de tienda", desc: "Adapta la identidad de marca con un clic: paletas de color, slugs y logos en vivo." }
+  { icon: "store", title: "Multi-tienda Unificada", color: "#50f0c1", link: "Configuración de suscursales", desc: "Gestiona múltiples sucursales y cajeros desde un solo panel. Separa marcas, territorios y bodegas sin duplicar datos." },
+  { icon: "package", title: "Control de Catálogo", color: "#7bd0ff", link: "Control del Catálogo", desc: "Importación masiva de productos en segundos y asignación a sucursales según el volumen de ventas." },
+  { icon: "lock", title: "Control de Acceso", color: "#d2d4ff", link: "Roles personalizados", desc: "Define permisos quirúrgicos: Administrador global, Cajero regional con trazabilidad total de auditoría." },
+  { icon: "chart", title: "Reportes en Tiempo Real", color: "#22d3a6", link: "Telemetría y exportación BI", desc: "Visualiza inventarios estancados y rendimiento a través de dashboards predictivos con filtros instantáneos." },
+  { icon: "brush", title: "Temas Personalizables", color: "#c4e7ff", link: "Motor de contructor de tienda", desc: "Adapta la identidad de marca con un clic: paletas de color, slugs y logos en vivo." }
 ];
 
 // ─── Steps data ───────────────────────────────────────────────────────────────
 const STEPS = [
-  { step: "01", label: "Paso 01 • En 60 Segundos", icon: "👤", color: "#50f0c1", title: "Crea tu Cuenta", desc: "Registra tu empresa mayorista, elige tu subdominio de orquestación y define la estructura principal de almacenes y moneda base." },
-  { step: "02", label: "Paso 02 • Configuración", icon: "⚙️", color: "#7bd0ff", title: "Configura tu Tienda", desc: "Importa tu catálogo por Excel, personaliza tu marca corporativa." },
-  { step: "03", label: "Paso 03 • Operación Total", icon: "🚀", color: "#22d3a6", title: "Empieza a Vender", desc: "Invita a tus compradores B2B, distribuye credenciales a tu fuerza comercial y monitorea despachos en tiempo real." },
+  { step: "01", label: "Paso 01 • En 60 Segundos", icon: "user", color: "#50f0c1", title: "Crea tu Cuenta", desc: "Registra tu empresa mayorista, elige tu subdominio de orquestación y define la estructura principal de almacenes y moneda base." },
+  { step: "02", label: "Paso 02 • Configuración", icon: "settings", color: "#7bd0ff", title: "Configura tu Tienda", desc: "Importa tu catálogo por Excel, personaliza tu marca corporativa." },
+  { step: "03", label: "Paso 03 • Operación Total", icon: "rocket", color: "#22d3a6", title: "Empieza a Vender", desc: "Invita a tus compradores B2B, distribuye credenciales a tu fuerza comercial y monitorea despachos en tiempo real." },
 ];
 
 // ─── Role cards data ──────────────────────────────────────────────────────────
 const ROLES = [
-  { icon: "🛡️", title: "Administrador", badge: "Full Control", color: "#50f0c1", level: "Root 00", sub: "Gobernanza global del ecosistema, auditoría y control financiero centralizado.", features: ["Ajustes globales y API keys", "Visión consolidada de facturación", "Auditoría de logs y accesos"] },
-  { icon: "🎧", title: "Cajero", badge: "Operativo", color: "#7bd0ff", level: "Field Ops", sub: "Agilidad para crear cotizaciones rápidas, validar stock y atender cuentas clave.", features: ["Gestión de pedidos.", "Stock local por bodega física"] },
-  { icon: "🏪", title: "Distribuidor", badge: "Multi-Store", color: "#22d3a6", level: "B2B Partner", sub: "Capacidad para reordenar por palets, coordinar sucursales y consultar créditos.", features: ["Precios por tramos de volumen", "Despachos multi-sucursal", "Líneas de crédito y estado de cuenta"] },
-  { icon: "🛍️", title: "Cliente B2B", badge: "Comprador", color: "#d2d4ff", level: "Client Tier", sub: "Portal intuitivo para reposición rápida, autoservicio de facturas y rastreo.", features: ["Catálogo con precios negociados", "Reordenar pedido con 1 clic", "Facturación fiscal automática"] },
+  { icon: "shield", title: "Administrador", badge: "Full Control", color: "#50f0c1", level: "Root 00", sub: "Gobernanza global del ecosistema, auditoría y control financiero centralizado.", features: ["Ajustes globales y API keys", "Visión consolidada de facturación", "Auditoría de logs y accesos"] },
+  { icon: "headphones", title: "Cajero", badge: "Operativo", color: "#7bd0ff", level: "Field Ops", sub: "Agilidad para crear cotizaciones rápidas, validar stock y atender cuentas clave.", features: ["Gestión de pedidos.", "Stock local por bodega física"] },
+  { icon: "store", title: "Distribuidor", badge: "Multi-Store", color: "#22d3a6", level: "B2B Partner", sub: "Capacidad para reordenar por palets, coordinar sucursales y consultar créditos.", features: ["Precios por tramos de volumen", "Despachos multi-sucursal", "Líneas de crédito y estado de cuenta"] },
+  { icon: "bag", title: "Cliente B2B", badge: "Comprador", color: "#d2d4ff", level: "Client Tier", sub: "Portal intuitivo para reposición rápida, autoservicio de facturas y rastreo.", features: ["Catálogo con precios negociados", "Reordenar pedido con 1 clic", "Facturación fiscal automática"] },
 ];
 
 // ─── Store products data ──────────────────────────────────────────────────────
 const PRODUCTS = [
-  { sku: "IND-SEN-992", emoji: "🌡️", lot: "Lote: 500 uds", name: "Sensor Térmico IoT Industrial", desc: "Conectividad LoRaWAN y certificación IP68 para monitoreo de cadena de frío.", price: "$28.50", original: "$42.00" },
-  { sku: "NET-GTW-400", emoji: "📡", lot: "Lote: 100 uds", name: "Gateway B2B Multi-Red Pro", desc: "Enrutador gigabit de alta densidad para hubs logísticos y almacenes automatizados.", price: "$154.00", original: "$210.00" },
-  { sku: "LOG-SCN-210", emoji: "📱", lot: "Lote: 50 uds", name: "Lector Óptico Ruggerizado 2D", desc: "Escaneo de alta velocidad con batería intercambiable de 18 horas de autonomía.", price: "$119.90", original: "$180.00" },
+  { sku: "IND-SEN-992", emoji: "thermometer", lot: "Lote: 500 uds", name: "Sensor Térmico IoT Industrial", desc: "Conectividad LoRaWAN y certificación IP68 para monitoreo de cadena de frío.", price: "$28.50", original: "$42.00" },
+  { sku: "NET-GTW-400", emoji: "wifi", lot: "Lote: 100 uds", name: "Gateway B2B Multi-Red Pro", desc: "Enrutador gigabit de alta densidad para hubs logísticos y almacenes automatizados.", price: "$154.00", original: "$210.00" },
+  { sku: "LOG-SCN-210", emoji: "phone", lot: "Lote: 50 uds", name: "Lector Óptico Ruggerizado 2D", desc: "Escaneo de alta velocidad con batería intercambiable de 18 horas de autonomía.", price: "$119.90", original: "$180.00" },
 ];
 
 // ─── Social proof logos ───────────────────────────────────────────────────────
 const LOGOS = [
-  { icon: "🏭", name: "LogixPro", color: "#7bd0ff" },
-  { icon: "🚚", name: "DistriSur", color: "#50f0c1" },
-  { icon: "⬡", name: "NovaMarket", color: "#d2d4ff" },
-  { icon: "🏪", name: "OmniRetail", color: "#22d3a6" },
-  { icon: "↯", name: "AndesB2B", color: "#7bd0ff" },
-  { icon: "⟐", name: "NexoRed", color: "#5ffccc" },
+  { icon: "factory", name: "LogixPro", color: "#7bd0ff" },
+  { icon: "truck", name: "DistriSur", color: "#50f0c1" },
+  { icon: "zap", name: "NovaMarket", color: "#d2d4ff" },
+  { icon: "store", name: "OmniRetail", color: "#22d3a6" },
+  { icon: "zap", name: "AndesB2B", color: "#7bd0ff" },
+  { icon: "package", name: "NexoRed", color: "#5ffccc" },
 ];
 
 // ─── Telemetry metrics ────────────────────────────────────────────────────────
@@ -243,9 +266,9 @@ export default function LandingPage() {
 
           {/* Trust badges */}
           <div className="flex flex-wrap items-center justify-center gap-5 text-[#bacac2] text-[12px] mb-14" style={{ fontFamily: "'Geist', sans-serif" }}>
-            <span className="flex items-center gap-1.5"><span className="text-[#50f0c1]">✓</span> Sin tarjeta requerida</span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4" style={{ color: "#50f0c1" }}>{ICON_MAP.check}</span> Sin tarjeta requerida</span>
             <span className="w-1 h-1 rounded-full bg-[#85948d]" />
-            <span className="flex items-center gap-1.5"><span className="text-[#50f0c1]">⚡</span> Despliegue en 60s</span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4" style={{ color: "#50f0c1" }}>{ICON_MAP.zap}</span> Despliegue en 60s</span>
           </div>
         </section>
 
@@ -273,9 +296,9 @@ export default function LandingPage() {
                 <div>
                   <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform shadow-inner"
-                    style={{ backgroundColor: `${f.color}18` }}
+                    style={{ backgroundColor: `${f.color}18`, color: f.color }}
                   >
-                    {f.icon}
+                    {ICON_MAP[f.icon]}
                   </div>
                   <h3 className="text-[24px] font-medium leading-[32px] tracking-[-0.02em] text-[#dbe3ef] mb-2" style={{ fontFamily: "'Geist', sans-serif" }}>{f.title}</h3>
                   <p className="text-[15px] text-[#bacac2] leading-[24px]">{f.desc}</p>
@@ -322,8 +345,8 @@ export default function LandingPage() {
                   key={s.step}
                   className="gsap-step-card relative z-10 flex flex-col items-center text-center p-6 rounded-2xl bg-[#182029]/70 shadow-lg border border-[#3c4a44]/40"
                 >
-                  <div className="step-icon relative w-16 h-16 rounded-2xl bg-[#232b33] flex items-center justify-center mb-4 text-3xl shadow-md">
-                    {s.icon}
+                  <div className="step-icon relative w-16 h-16 rounded-2xl bg-[#232b33] flex items-center justify-center mb-4 text-3xl shadow-md" style={{ color: s.color }}>
+                    {ICON_MAP[s.icon]}
                     <div
                       className="absolute -top-2 -right-2 w-7 h-7 rounded-full text-[#00382a] text-[14px] font-bold flex items-center justify-center shadow-md"
                       style={{ backgroundColor: s.color, fontFamily: "'Geist', sans-serif" }}
@@ -349,8 +372,8 @@ export default function LandingPage() {
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-[#50f0c1]/20 blur-[100px] pointer-events-none" />
 
             <div className="relative z-10 max-w-[800px] flex flex-col items-center">
-              <div className="w-14 h-14 rounded-2xl bg-[#50f0c1]/10 flex items-center justify-center mb-6 shadow-[0_0_24px_rgba(80,240,193,0.3)] text-3xl border border-[#50f0c1]/20">
-                ⚡
+              <div className="w-14 h-14 rounded-2xl bg-[#50f0c1]/10 flex items-center justify-center mb-6 shadow-[0_0_24px_rgba(80,240,193,0.3)] text-3xl border border-[#50f0c1]/20" style={{ color: "#50f0c1" }}>
+                {ICON_MAP.zap}
               </div>
               <h2 className="gsap-cta-title text-[36px] md:text-[52px] font-semibold leading-[1.1] tracking-[-0.035em] text-[#dbe3ef] mb-4" style={{ fontFamily: "'Geist', sans-serif" }}>
                 ¿Listo para transformar tu distribución?
@@ -374,8 +397,8 @@ export default function LandingPage() {
               </div>
 
               <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-[#85948d] text-[12px]" style={{ fontFamily: "'Geist', sans-serif" }}>
-                <span className="gsap-cta-badge flex items-center gap-1"><span className="text-[#50f0c1]">✓</span> Configuración asistida</span>
-                <span className="gsap-cta-badge flex items-center gap-1"><span className="text-[#50f0c1]">✓</span> Migración de catálogo incluida</span>
+                <span className="gsap-cta-badge flex items-center gap-1"><span style={{ color: "#50f0c1" }} className="w-4 h-4">{ICON_MAP.check}</span> Configuración asistida</span>
+                <span className="gsap-cta-badge flex items-center gap-1"><span style={{ color: "#50f0c1" }} className="w-4 h-4">{ICON_MAP.check}</span> Migración de catálogo incluida</span>
               </div>
             </div>
           </div>
@@ -384,7 +407,7 @@ export default function LandingPage() {
       </main>
 
       {/* ─── FOOTER ─────────────────────────────────────────────────────────── */}
-      <footer className="w-full bg-[#070f17] py-16 border-t border-[#3c4a44]/40">
+      <footer className="w-full bg-[#070f17] py-16 border-t border-[#3c4a44]/40 relative z-10">
         <div className="max-w-[1280px] mx-auto px-6 flex flex-col gap-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
             {/* Brand column */}
