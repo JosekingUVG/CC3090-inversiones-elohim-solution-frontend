@@ -1,5 +1,7 @@
 "use client";
 
+import { STORE_LAYOUT } from "@/components/features/portal/constructor/storeLayout";
+
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -683,8 +685,9 @@ export default function LivePreviewPage() {
                 zIndex: 40,
                 ...customStyle
               }}
-              className="border-b border-slate-200 px-6 py-4 flex items-center justify-between transition-all select-none max-w-6xl w-full mx-auto"
+              className={`${STORE_LAYOUT.section} border-b border-slate-200 py-4 transition-all select-none`}
             >
+              <div className={`${STORE_LAYOUT.content} flex items-center justify-between`}>
               <div className="flex items-center gap-2.5">
                 {props.logoUrl && (
                   <img src={props.logoUrl} alt={props.storeName} className="h-8 max-h-8 max-w-[40px] object-contain flex-shrink-0" />
@@ -764,6 +767,7 @@ export default function LivePreviewPage() {
                   </button>
                 )}
               </div>
+              </div>
             </header>
           );
         }
@@ -794,7 +798,7 @@ export default function LivePreviewPage() {
               key={section.id}
               id={section.id}
               style={heroStyle}
-              className="relative py-24 px-6 text-center flex flex-col items-center justify-center min-h-[400px] transition-all select-none w-full"
+              className={`${STORE_LAYOUT.section} relative py-24 text-center flex flex-col items-center justify-center min-h-[400px] transition-all select-none`}
             >
               {hasImage && (
                 <div 
@@ -803,11 +807,11 @@ export default function LivePreviewPage() {
                 />
               )}
               
-              <div className="relative z-10 max-w-2xl space-y-6">
+              <div className={`${STORE_LAYOUT.content} relative z-10 space-y-6`}>
                 <h2 className="text-3xl font-black tracking-tight leading-tight sm:text-5xl text-white drop-shadow-md">
                   {props.title}
                 </h2>
-                <p className="text-sm sm:text-base text-slate-200/90 leading-relaxed max-w-lg mx-auto drop-shadow-sm">
+                <p className="text-sm sm:text-base text-slate-200/90 leading-relaxed drop-shadow-sm">
                   {props.subtitle}
                 </p>
                 <div className="flex items-center justify-center gap-4 pt-4">
@@ -849,8 +853,9 @@ export default function LivePreviewPage() {
                 color: props.textColor || "#0F172A",
                 ...customStyle
               }}
-              className="py-16 px-6 max-w-6xl w-full mx-auto space-y-8 flex-1 w-full"
+              className={`${STORE_LAYOUT.section} py-16 flex-1`}
             >
+              <div className={`${STORE_LAYOUT.content} space-y-8`}>
               <div 
                 style={{ borderBottomColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(241, 245, 249, 1)" }}
                 className="flex items-center justify-between border-b pb-4"
@@ -901,7 +906,7 @@ export default function LivePreviewPage() {
               )}
               
               {props.layoutType === "list" ? (
-                <div className="space-y-4 max-w-4xl mx-auto">
+                <div className="space-y-4">
                   {displayProducts.map((p: any, idx: number) => (
                     <div 
                       key={idx} 
@@ -1065,6 +1070,7 @@ export default function LivePreviewPage() {
                   </button>
                 </div>
               )}
+              </div>
             </section>
           );
         }
@@ -1585,9 +1591,9 @@ export default function LivePreviewPage() {
                 color: props.textColor || "#94A3B8",
                 ...customStyle
               }}
-              className="py-12 px-6 text-center text-xs font-medium border-t border-slate-800 w-full"
+              className={`${STORE_LAYOUT.section} py-12 text-center text-xs font-medium border-t border-slate-800`}
             >
-              <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className={`${STORE_LAYOUT.content} flex flex-col sm:flex-row items-center justify-between gap-4`}>
                 <div className="flex items-center gap-2">
                   <Store size={16} />
                   <span className="font-bold text-white">{store.nombre}</span>

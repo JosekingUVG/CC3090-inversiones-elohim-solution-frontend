@@ -1,5 +1,7 @@
 "use client";
 
+import { STORE_LAYOUT } from "@/components/features/portal/constructor/storeLayout";
+
 import React from "react";
 import { Store, ShoppingCart, ShoppingBag, Search, X } from "lucide-react";
 
@@ -175,10 +177,11 @@ export function ConstructorPreview({
                     color: props.textColor || "#0F172A",
                     ...customStyle
                   }}
-                  className={`border-b border-slate-200 ${previewDevice === "mobile" ? "px-3 py-2" : "px-6 py-4"} flex items-center justify-between transition-all select-none relative cursor-pointer ${
+                  className={`${STORE_LAYOUT.section} border-b border-slate-200 ${previewDevice === "mobile" ? "py-2" : "py-4"} transition-all select-none relative cursor-pointer ${
                     isSelected ? "outline outline-2 outline-[#22D3A6] outline-offset-[-2px] z-30 animate-pulse" : ""
                   }`}
                 >
+                  <div className={`${STORE_LAYOUT.content} flex items-center justify-between`}>
                   <div className="flex items-center gap-2">
                     <Store size={18} style={{ color: props.textColor || "inherit" }} />
                     <span style={{ color: props.textColor || "inherit" }} className="font-black tracking-tight text-sm">
@@ -212,6 +215,7 @@ export function ConstructorPreview({
                   <div style={{ color: props.textColor || "inherit" }} className="flex items-center gap-4">
                     <ShoppingCart size={16} />
                   </div>
+                  </div>
                 </header>
               );
             }
@@ -242,7 +246,7 @@ export function ConstructorPreview({
                   key={section.id}
                   onClick={() => handleSelectSection(section.id)}
                   style={heroStyle}
-                  className={`relative cursor-pointer ${previewDevice === "mobile" ? "py-8 px-4 min-h-[180px]" : "py-16 px-8 min-h-[260px]"} text-center flex flex-col items-center justify-center transition-all select-none ${
+                  className={`${STORE_LAYOUT.section} relative cursor-pointer ${previewDevice === "mobile" ? "py-8 min-h-[180px]" : "py-16 min-h-[260px]"} text-center flex flex-col items-center justify-center transition-all select-none ${
                     isSelected ? "outline outline-2 outline-[#22D3A6] outline-offset-[-2px] z-30 animate-pulse" : ""
                   }`}
                 >
@@ -253,11 +257,11 @@ export function ConstructorPreview({
                     />
                   )}
                   
-                  <div className="relative z-10 max-w-lg space-y-4">
+                  <div className={`${STORE_LAYOUT.content} relative z-10 space-y-4`}>
                     <h2 className={`${previewDevice === "mobile" ? "text-lg" : "text-2xl sm:text-3xl"} font-black tracking-tight leading-tight text-white`}>
                       {props.title || "Título del Hero"}
                     </h2>
-                    <p className={`${previewDevice === "mobile" ? "text-[10px] leading-snug" : "text-xs leading-relaxed"} text-slate-200/90 max-w-md mx-auto`}>
+                    <p className={`${previewDevice === "mobile" ? "text-[10px] leading-snug" : "text-xs leading-relaxed"} text-slate-200/90`}>
                       {props.subtitle || "Subtítulo descriptivo de tu tienda o marca..."}
                     </p>
                     <div className="flex items-center justify-center gap-3 pt-2">
@@ -308,10 +312,11 @@ export function ConstructorPreview({
                     color: props.textColor || "#0F172A",
                     ...customStyle
                   }}
-                  className={`cursor-pointer ${previewDevice === "mobile" ? "py-6 px-3 space-y-4" : "py-12 px-6 space-y-6"} transition-all select-none relative ${
+                  className={`${STORE_LAYOUT.section} cursor-pointer ${previewDevice === "mobile" ? "py-6" : "py-12"} transition-all select-none relative ${
                     isSelected ? "outline outline-2 outline-[#22D3A6] outline-offset-[-2px] z-30 animate-pulse" : ""
                   }`}
                 >
+                  <div className={`${STORE_LAYOUT.content} ${previewDevice === "mobile" ? "space-y-4" : "space-y-6"}`}>
                   <div 
                     style={{ borderBottomColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(241, 245, 249, 1)" }}
                     className="flex items-center justify-between border-b pb-3"
@@ -363,7 +368,7 @@ export function ConstructorPreview({
                   )}
                   
                   {props.layoutType === "list" ? (
-                    <div className="space-y-3 max-w-2xl mx-auto">
+                    <div className="space-y-3">
                       {filteredMocks.map((p, idx) => (
                         <div 
                           key={idx} 
@@ -426,6 +431,7 @@ export function ConstructorPreview({
                       ))}
                     </div>
                   )}
+                  </div>
                 </section>
               );
             }
@@ -615,15 +621,17 @@ export function ConstructorPreview({
                     color: props.textColor || "#94A3B8",
                     ...customStyle
                   }}
-                  className={`cursor-pointer py-8 px-6 text-center ${previewDevice === "mobile" ? "text-[8px] py-4" : "text-[10px] py-8"} font-semibold border-t border-slate-800 transition-all select-none relative ${
+                  className={`${STORE_LAYOUT.section} cursor-pointer py-8 text-center ${previewDevice === "mobile" ? "text-[8px] py-4" : "text-[10px] py-8"} font-semibold border-t border-slate-800 transition-all select-none relative ${
                     isSelected ? "outline outline-2 outline-[#22D3A6] outline-offset-[-2px] z-30 animate-pulse" : ""
                   }`}
                 >
+                  <div className={STORE_LAYOUT.content}>
                   <span>{props.copyrightText || "© 2026 Reservados todos los derechos."}</span>
+                  </div>
                 </footer>
               );
             }
-
+            
             return null;
           })}
         </div>
