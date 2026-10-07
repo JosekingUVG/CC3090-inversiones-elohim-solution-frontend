@@ -42,8 +42,18 @@ jobs:
       - name: Run tests
         run: pnpm test -- --ci --runInBand
 
+      - name: Prepare frontend env defaults
+        run: |
+          cp .env.example .env
+
       - name: Build frontend Docker image
-        run: docker build -t elohim-frontend:ci .
+        run: >-
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=http://localhost:5000 \
+            --build-arg BACKEND_API_URL=http://localhost:5000 \
+            --build-arg NEXT_PUBLIC_MAIN_DOMAIN=dmhub.fun \
+            --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com \
+            -t elohim-frontend:ci .
 
       - name: Start frontend container
         run: |
