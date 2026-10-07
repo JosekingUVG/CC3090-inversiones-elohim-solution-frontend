@@ -6,7 +6,7 @@
     "dev": "cross-env WATCHPACK_POLLING=true next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint . --quiet",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
