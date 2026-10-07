@@ -49,7 +49,7 @@ export type TReservacionV1 = {
   estadoDespacho: string;
   stripeIntentId: string | null;
   fechaReserva: string;
-  detalles: any[];
+  detalles: unknown[];
 };
 
 export async function crearReservacionV1(

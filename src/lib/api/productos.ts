@@ -64,7 +64,7 @@ export async function obtenerProductoPorId(
   token?: string
 ): Promise<TProductoDetalle> {
   const headers = buildAuthHeaders(token, false, tenantIdOrSlug);
-  const raw = await apiRequest<any>(
+  const raw = await apiRequest<TProductoDetalle>(
     `/api/v1/productos/${idProducto}`,
     {
       method: "GET",

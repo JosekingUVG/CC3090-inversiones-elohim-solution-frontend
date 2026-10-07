@@ -113,7 +113,7 @@ export function KanbanTab({
   const playSynthSound = (type: "new" | "success" | "drag") => {
     if (!soundEnabled) return;
     try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioContextClass) return;
       const ctx = new AudioContextClass();
 
@@ -333,9 +333,9 @@ export function KanbanTab({
       });
       playSynthSound("success");
       onRefresh();
-    } catch (err: any) {
+    } catch (err) {
       toast.dismiss(loadingToast);
-      toast.error(err?.response?.data?.error || err?.message || t("toast_update_error"));
+      toast.error((err instanceof Error ? err.message : "") || t("toast_update_error"));
     } finally {
       setTimeout(() => setIsPollingPaused(false), 2500);
     }
@@ -362,9 +362,9 @@ export function KanbanTab({
       playSynthSound("success");
       setSelectedCardDetail(null);
       onRefresh();
-    } catch (err: any) {
+    } catch (err) {
       toast.dismiss(loadingToast);
-      toast.error(err?.response?.data?.error || err?.message || "No se pudo cancelar la reservación.");
+      toast.error((err instanceof Error ? err.message : "") || "No se pudo cancelar la reservación.");
     } finally {
       setTimeout(() => setIsPollingPaused(false), 2500);
     }

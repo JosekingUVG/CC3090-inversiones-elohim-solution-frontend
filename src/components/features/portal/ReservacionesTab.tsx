@@ -34,8 +34,8 @@ export function ReservacionesTab({
       await cambiarEstadoReservacion(token, res.id, { estadoPago: "pagado" });
       toast.success(t("toast_payment_updated"));
       onRefresh();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || err?.message || t("toast_payment_error"));
+    } catch (err) {
+      toast.error((err instanceof Error ? err.message : "") || t("toast_payment_error"));
     }
   };
 
@@ -53,8 +53,8 @@ export function ReservacionesTab({
       await cambiarEstadoReservacion(token, res.id, { estadoDespacho: "despachado" });
       toast.success(t("toast_dispatch_updated"));
       onRefresh();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || err?.message || t("toast_dispatch_error"));
+    } catch (err) {
+      toast.error((err instanceof Error ? err.message : "") || t("toast_dispatch_error"));
     }
   };
 

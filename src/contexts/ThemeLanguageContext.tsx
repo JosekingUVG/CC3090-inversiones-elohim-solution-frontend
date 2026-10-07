@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useSyncExternalStore, useCallback, useMemo } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import {
   type SupportedLanguage,
@@ -31,66 +31,53 @@ interface ThemeLanguageContextType {
 
 const ThemeLanguageContext = createContext<ThemeLanguageContextType | undefined>(undefined);
 
+const preferenceEvent = "dmhub-preferences-changed";
+function subscribePreferences(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener("popstate", onChange);
+  window.addEventListener(preferenceEvent, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener("popstate", onChange);
+    window.removeEventListener(preferenceEvent, onChange);
+  };
+}
+
 export function ThemeLanguageProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>("dark");
-  const [language, setLanguageState] = useState<SupportedLanguage>("es");
-  const [mounted, setMounted] = useState(false);
+  const theme = useSyncExternalStore(subscribePreferences, getCurrentTheme, () => "dark" as ThemeMode);
+  const language = useSyncExternalStore(subscribePreferences, getCurrentLanguage, () => "es" as SupportedLanguage);
 
-  // Initialize from storage or DOM
+  // Read browser preferences here so hydration defaults cannot overwrite storage.
   useEffect(() => {
-    const initialLang = getCurrentLanguage();
-    const initialTheme = getCurrentTheme();
-
-    setLanguageState(initialLang);
-    setThemeState(initialTheme);
-    applyLanguageToDocument(initialLang);
-    syncDocumentTheme(initialTheme);
-    setMounted(true);
+    applyLanguageToDocument(getCurrentLanguage());
+    syncDocumentTheme(getCurrentTheme());
   }, []);
 
   const setTheme = useCallback((newTheme: ThemeMode) => {
-    setThemeState(newTheme);
     syncDocumentTheme(newTheme);
+    window.dispatchEvent(new Event(preferenceEvent));
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setThemeState((prev) => {
-      const nextTheme: ThemeMode = prev === "dark" ? "light" : "dark";
-      syncDocumentTheme(nextTheme);
-      return nextTheme;
-    });
-  }, []);
+    setTheme(theme === "dark" ? "light" : "dark");
+  }, [theme, setTheme]);
 
   const setLanguage = useCallback((newLang: SupportedLanguage) => {
     const validLang = normalizeLanguage(newLang);
-    setLanguageState(validLang);
     applyLanguageToDocument(validLang);
-
-    if (typeof window !== "undefined") {
-      const nextUrl = getUpdatedUrlWithLanguage(window.location.href, validLang);
-      const currentUrl = `${window.location.pathname}${window.location.search}`;
-      if (nextUrl !== currentUrl) {
-        const url = new URL(window.location.href);
-        url.searchParams.set("lang", validLang);
-        window.history.replaceState({}, "", `${url.pathname}${url.search}`);
-      }
+    const nextUrl = getUpdatedUrlWithLanguage(window.location.href, validLang);
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    if (nextUrl !== currentUrl) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("lang", validLang);
+      window.history.replaceState({}, "", `${url.pathname}${url.search}`);
     }
+    window.dispatchEvent(new Event(preferenceEvent));
   }, []);
 
   const toggleLanguage = useCallback(() => {
-    setLanguageState((prev) => {
-      const nextLang: SupportedLanguage = prev === "es" ? "en" : "es";
-      applyLanguageToDocument(nextLang);
-
-      if (typeof window !== "undefined") {
-        const url = new URL(window.location.href);
-        url.searchParams.set("lang", nextLang);
-        window.history.replaceState({}, "", `${url.pathname}${url.search}`);
-      }
-
-      return nextLang;
-    });
-  }, []);
+    setLanguage(language === "es" ? "en" : "es");
+  }, [language, setLanguage]);
 
   const value = useMemo(
     () => ({

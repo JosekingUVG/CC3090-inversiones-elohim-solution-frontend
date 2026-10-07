@@ -1,5 +1,7 @@
 "use client";
 
+import { useHydrated } from "@/hooks/useHydrated";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getPostLoginPath } from "@/lib/auth-routes";
@@ -12,15 +14,12 @@ type GuestAuthGateProps = {
 /** Login/registro: redirige si ya hay sesión válida. */
 export function GuestAuthGate({ children }: GuestAuthGateProps) {
   const router = useRouter();
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useHydrated();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const usuario = useAuthStore((s) => s.usuario);
   const isSessionExpired = useAuthStore((s) => s.isSessionExpired());
   const logout = useAuthStore((s) => s.logout);
 
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   useEffect(() => {
     if (!isHydrated) return;

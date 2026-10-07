@@ -1,5 +1,7 @@
 "use client";
 
+import type { StoreVisualConfig } from "@/types/store-builder";
+
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -14,7 +16,7 @@ export default function ClientRecuperarPage() {
   const storeId = params.id as string;
 
   const [store, setStore] = useState<TiendaDto | null>(null);
-  const [visualConfig, setVisualConfig] = useState<any>(null);
+  const [visualConfig, setVisualConfig] = useState<StoreVisualConfig | null>(null);
   const [loadingStore, setLoadingStore] = useState(true);
 
   // Wizard Steps: 1 = Email, 2 = Code, 3 = New Password, 4 = Success
@@ -69,11 +71,11 @@ export default function ClientRecuperarPage() {
   }, [store]);
 
   // Extract visual properties from configuration
-  const headerSection = visualConfig?.sections?.find((s: any) => s.type === "header") || 
-                        visualConfig?.pages?.[0]?.sections?.find((s: any) => s.type === "header");
+  const headerSection = visualConfig?.sections?.find((s) => s.type === "header") ||
+                        visualConfig?.pages?.[0]?.sections?.find((s) => s.type === "header");
   
-  const announcementSection = visualConfig?.sections?.find((s: any) => s.type === "announcement") ||
-                              visualConfig?.pages?.[0]?.sections?.find((s: any) => s.type === "announcement");
+  const announcementSection = visualConfig?.sections?.find((s) => s.type === "announcement") ||
+                              visualConfig?.pages?.[0]?.sections?.find((s) => s.type === "announcement");
 
   const headerProps = headerSection?.properties || {};
   const announcementProps = announcementSection?.properties || {};
@@ -270,7 +272,7 @@ export default function ClientRecuperarPage() {
                   disabled={isLoading}
                   required
                   className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#1AB38C] focus:bg-white transition-all disabled:opacity-50"
-                  style={{ "--tw-focus-border": storePrimaryColor } as any}
+                  style={{ "--tw-focus-border": storePrimaryColor } as React.CSSProperties & { "--tw-focus-border": string }}
                 />
               </div>
 

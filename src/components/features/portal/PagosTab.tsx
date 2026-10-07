@@ -28,8 +28,8 @@ export function PagosTab({ token, reservaciones, onRefresh }: PagosTabProps) {
       await cambiarEstadoReservacion(token, res.id, { estadoDespacho: "despachado" });
       toast.success(t("toast_dispatch_updated"));
       onRefresh();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || err?.message || t("toast_dispatch_error"));
+    } catch (err) {
+      toast.error((err instanceof Error ? err.message : "") || t("toast_dispatch_error"));
     }
   };
 

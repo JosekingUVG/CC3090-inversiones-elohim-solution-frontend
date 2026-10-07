@@ -1,5 +1,7 @@
 "use client";
 
+import type { StoreVisualConfig } from "@/types/store-builder";
+
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -35,7 +37,7 @@ export default function ClientProductDetailPage() {
 
   // Store metadata & styling config
   const [store, setStore] = useState<TiendaDto | null>(null);
-  const [visualConfig, setVisualConfig] = useState<any>(null);
+  const [visualConfig, setVisualConfig] = useState<StoreVisualConfig | null>(null);
   const [loadingStore, setLoadingStore] = useState(true);
 
   // Product detail states
@@ -145,16 +147,16 @@ export default function ClientProductDetailPage() {
     if (!storeProducts || storeProducts.length === 0) return [];
     const currentId = product?.id || product?.idProducto || productId;
     return storeProducts
-      .filter((p: any) => (p.id || p.productoId || p.idProducto) !== currentId)
+      .filter((p) => (p.id) !== currentId)
       .slice(0, 4);
   }, [storeProducts, product, productId]);
 
   // Header and Announcement visual styles
-  const headerSection = visualConfig?.sections?.find((s: any) => s.type === "header") || 
-                        visualConfig?.pages?.[0]?.sections?.find((s: any) => s.type === "header");
+  const headerSection = visualConfig?.sections?.find((s) => s.type === "header") ||
+                        visualConfig?.pages?.[0]?.sections?.find((s) => s.type === "header");
   
-  const announcementSection = visualConfig?.sections?.find((s: any) => s.type === "announcement") ||
-                              visualConfig?.pages?.[0]?.sections?.find((s: any) => s.type === "announcement");
+  const announcementSection = visualConfig?.sections?.find((s) => s.type === "announcement") ||
+                              visualConfig?.pages?.[0]?.sections?.find((s) => s.type === "announcement");
 
   const headerProps = headerSection?.properties || {};
   const announcementProps = announcementSection?.properties || {};
@@ -244,7 +246,7 @@ export default function ClientProductDetailPage() {
         minHeight: "100vh",
         color: isDark ? "#F8FAFC" : "#0F172A",
         "--accent-color": storePrimaryColor
-      } as any}
+      } as React.CSSProperties & { "--accent-color": string }}
       className="flex flex-col font-sans"
     >
       {/* Announcement Bar */}
@@ -619,11 +621,11 @@ export default function ClientProductDetailPage() {
             </div>
 
             <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              {relatedProducts.map((p: any, idx: number) => {
-                const pId = p.id || p.productoId || p.idProducto;
-                const pName = p.nombre || p.nombreProducto;
-                const pPrice = typeof p.precio === "number" ? p.precio.toFixed(2) : p.precio;
-                const pImg = p.imagenUrl || p.imagenPrincipal || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&q=80";
+              {relatedProducts.map((p, idx: number) => {
+                const pId = p.id;
+                const pName = p.nombre;
+                const pPrice = p.precioDetalle.toFixed(2);
+                const pImg = p.imagenUrl || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&q=80";
 
                 return (
                   <div

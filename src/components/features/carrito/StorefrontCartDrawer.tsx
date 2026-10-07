@@ -43,9 +43,9 @@ export function StorefrontCartDrawer({ isOpen, onClose, onOpenAuth, products }: 
   const [createdReservationId, setCreatedReservationId] = useState<string | null>(null);
 
   // Checkout states
-  const [sucursales, setSucursales] = useState<any[]>([]);
+  const [sucursales, setSucursales] = useState<import("@/lib/api/admin").SucursalDto[]>([]);
   const [selectedSucursalId, setSelectedSucursalId] = useState("");
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"contra_entrega" | "tarjeta" | "">("");
+  const [paymentMethodChoice, setSelectedPaymentMethod] = useState<"contra_entrega" | "tarjeta" | "">("");
   const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
   const [stripeKeyAvailable, setStripeKeyAvailable] = useState(false);
   const [stripeCardMethodId, setStripeCardMethodId] = useState<string | null>(null);
@@ -137,17 +137,12 @@ export function StorefrontCartDrawer({ isOpen, onClose, onOpenAuth, products }: 
     void loadCheckoutConfig();
   }, [view, clientToken]);
 
-  // Pre-select payment method depending on Stripe availability
-  useEffect(() => {
-    if (stripeKeyAvailable) {
-      setSelectedPaymentMethod("tarjeta");
-    } else {
-      setSelectedPaymentMethod("contra_entrega");
-    }
-  }, [stripeKeyAvailable]);
+  const selectedPaymentMethod = paymentMethodChoice || (stripeKeyAvailable ? "tarjeta" : "contra_entrega");
 
   // Reset drawer state when closed or opened
-  useEffect(() => {
+  const [previousOpen, setPreviousOpen] = useState(isOpen);
+  if (previousOpen !== isOpen) {
+    setPreviousOpen(isOpen);
     if (!isOpen) {
       setView("cart");
       setCreatedReservationId(null);
@@ -155,7 +150,7 @@ export function StorefrontCartDrawer({ isOpen, onClose, onOpenAuth, products }: 
       setStripeCardMethodId(null);
       setIsProcessingCheckout(false);
     }
-  }, [isOpen]);
+  }
 
   if (!isOpen) return null;
 

@@ -1,5 +1,9 @@
 "use client";
 
+import { useHydrated } from "@/hooks/useHydrated";
+
+import type { StoreConfig, SectionProperties } from "@/types/store-builder";
+
 import { STORE_LAYOUT } from "@/components/features/portal/constructor/storeLayout";
 
 import { useEffect, useState, useMemo, useRef } from "react";
@@ -64,7 +68,7 @@ const isDarkBg = (bgColor: string) => {
 };
 
 // Helper to translate section properties into dynamic React CSS styles
-const getSectionStyle = (properties: any, theme: any) => {
+const getSectionStyle = (properties: SectionProperties) => {
   const styles: React.CSSProperties = {};
   if (!properties) return styles;
 
@@ -155,29 +159,31 @@ export default function LivePreviewPage() {
   } = useCarrito();
   const cartCount = cartItems.reduce((sum, item) => sum + item.cantidad, 0);
 
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useHydrated();
   const [loading, setLoading] = useState(true);
   const [store, setStore] = useState<TiendaDto | null>(null);
   const [products, setProducts] = useState<PlatformProductoDto[]>([]);
-  const [visualConfig, setVisualConfig] = useState<any>(null);
+  const [visualConfig, setVisualConfig] = useState<StoreConfig | null>(null);
   const [activePageId, setActivePageId] = useState<string>("home");
   const [searchTerm, setSearchTerm] = useState("");
   const [verTodoCatalogo, setVerTodoCatalogo] = useState(false);
   const [paginaActual, setPaginaActual] = useState(1);
 
-  useEffect(() => {
+  const [paginationSource, setPaginationSource] = useState({ searchTerm, activePageId });
+  if (paginationSource.searchTerm !== searchTerm || paginationSource.activePageId !== activePageId) {
+    setPaginationSource({ searchTerm, activePageId });
     setPaginaActual(1);
-  }, [searchTerm, activePageId]);
+  }
 
   // Dynamically update the browser tab title and favicon when navigating pages
   useEffect(() => {
     if (!visualConfig || !store) return;
-    const page = visualConfig.pages?.find((p: any) => p.id === activePageId);
+    const page = visualConfig.pages?.find((p) => p.id === activePageId);
     const storeName = store.nombre || "Tienda";
     document.title = (page?.isHome || !page?.name) ? storeName : `${page.name} – ${storeName}`;
 
     // Update favicon with the store logo if configured
-    const headerSec = page?.sections?.find((s: any) => s.type === "header");
+    const headerSec = page?.sections?.find((s) => s.type === "header");
     const logoUrl = headerSec?.properties?.logoUrl;
     let faviconLink = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
     if (!faviconLink) {
@@ -195,22 +201,16 @@ export default function LivePreviewPage() {
     }
   }, [store?.id, selectTenant]);
 
-  const [showPreviewBanner, setShowPreviewBanner] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const hostname = window.location.hostname;
-      const isMainHost = hostname === "localhost" || 
-                         hostname === "127.0.0.1" || 
-                         hostname === (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "");
-      setShowPreviewBanner(isMainHost);
-    }
-  }, []);
+  const showPreviewBanner = isHydrated && (
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "")
+  );
 
   // Checkout states
-  const [sucursales, setSucursales] = useState<any[]>([]);
+  const [sucursales, setSucursales] = useState<import("@/lib/api/admin").SucursalDto[]>([]);
   const [selectedSucursalId, setSelectedSucursalId] = useState("");
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"contra_entrega" | "tarjeta" | "">("");
+  const [paymentMethodChoice, setSelectedPaymentMethod] = useState<"contra_entrega" | "tarjeta" | "">("");
   const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
   const [stripeKeyAvailable, setStripeKeyAvailable] = useState(false);
   const [stripeCardMethodId, setStripeCardMethodId] = useState<string | null>(null);
@@ -316,18 +316,8 @@ export default function LivePreviewPage() {
     }
   };
 
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
-  // Pre-select payment method depending on Stripe availability
-  useEffect(() => {
-    if (stripeKeyAvailable) {
-      setSelectedPaymentMethod("tarjeta");
-    } else {
-      setSelectedPaymentMethod("contra_entrega");
-    }
-  }, [stripeKeyAvailable]);
+  const selectedPaymentMethod = paymentMethodChoice || (stripeKeyAvailable ? "tarjeta" : "contra_entrega");
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -502,22 +492,20 @@ export default function LivePreviewPage() {
     loadData();
   }, [isHydrated, storeId, token, clientToken, isAuthenticated, router]);
 
-  const activePage = visualConfig?.pages?.find((p: any) => p.id === activePageId) || visualConfig?.pages?.[0];
-  const announcementSection = activePage?.sections?.find((s: any) => s.type === "announcement");
-  const productsSection = activePage?.sections?.find((s: any) => s.type === "products");
+  const activePage = visualConfig?.pages?.find((p) => p.id === activePageId) || visualConfig?.pages?.[0];
+  const announcementSection = activePage?.sections?.find((s) => s.type === "announcement");
+  const productsSection = activePage?.sections?.find((s) => s.type === "products");
 
   // Get all filtered products (without slicing yet)
   const filteredProducts = useMemo(() => {
-    let list: any[] = products;
-
-    list = list.map(p => ({
+    let list = products.map(p => ({
       ...p,
-      precio: typeof p.precio === 'number' ? p.precio : (p.precioDetalle ?? 0)
+      precio: p.precioDetalle ?? 0
     }));
 
     if (searchTerm.trim() !== "") {
       const term = searchTerm.toLowerCase();
-      list = list.filter((p: any) => 
+      list = list.filter((p) =>
         (p.nombre || "").toLowerCase().includes(term) || 
         (p.descripcion || "").toLowerCase().includes(term)
       );
@@ -641,9 +629,9 @@ export default function LivePreviewPage() {
           </div>
         </div>
       )}
-      {activePage.sections.map((section: any) => {
+      {activePage?.sections.map((section) => {
         const props = section.properties || {};
-        const customStyle = getSectionStyle(props, visualConfig.theme);
+        const customStyle = getSectionStyle(props);
         const isDark = props.useGlassmorphism || isDarkBg(props.backgroundColor || "#FFFFFF");
 
         if (section.type === "announcement") {
@@ -698,7 +686,7 @@ export default function LivePreviewPage() {
                 </span>
               </div>
               <nav className="hidden md:flex items-center gap-8">
-                {visualConfig.pages.map((p: any) => (
+                {visualConfig.pages.map((p) => (
                   <span
                     key={p.id}
                     onClick={() => setActivePageId(p.id)}
@@ -907,7 +895,7 @@ export default function LivePreviewPage() {
               
               {props.layoutType === "list" ? (
                 <div className="space-y-4">
-                  {displayProducts.map((p: any, idx: number) => (
+                  {displayProducts.map((p, idx: number) => (
                     <div 
                       key={idx} 
                       style={{
@@ -915,7 +903,7 @@ export default function LivePreviewPage() {
                         borderColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#E2E8F0"
                       }}
                       className="rounded-xl border p-4 flex gap-4 hover:shadow-xl transition-all group cursor-pointer"
-                      onClick={() => router.push(`/preview/${storeId}/producto/${p.id || p.productoId}`)}
+                      onClick={() => router.push(`/preview/${storeId}/producto/${p.id}`)}
                     >
                       <div className="h-24 w-24 sm:h-32 sm:w-32 bg-slate-100 rounded-lg overflow-hidden relative flex-shrink-0 flex items-center justify-center">
                         <img 
@@ -946,7 +934,7 @@ export default function LivePreviewPage() {
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              void handleAddToCart(p.id || p.productoId);
+                              void handleAddToCart(p.id);
                             }}
                             style={{
                               backgroundColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(241, 245, 249, 1)",
@@ -969,7 +957,7 @@ export default function LivePreviewPage() {
                 </div>
               ) : (
                 <div className={`grid gap-6 grid-cols-1 ${gridColsClass}`}>
-                  {displayProducts.map((p: any, idx: number) => (
+                  {displayProducts.map((p, idx: number) => (
                     <div 
                       key={idx} 
                       style={{
@@ -977,7 +965,7 @@ export default function LivePreviewPage() {
                         borderColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#E2E8F0"
                       }}
                       className="rounded-xl border p-4 flex flex-col gap-3.5 hover:shadow-xl transition-all group cursor-pointer"
-                      onClick={() => router.push(`/preview/${storeId}/producto/${p.id || p.productoId}`)}
+                      onClick={() => router.push(`/preview/${storeId}/producto/${p.id}`)}
                     >
                       <div className="aspect-square bg-slate-100 rounded-lg overflow-hidden relative flex items-center justify-center">
                         <img 
@@ -1001,7 +989,7 @@ export default function LivePreviewPage() {
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              void handleAddToCart(p.id || p.productoId);
+                              void handleAddToCart(p.id);
                             }}
                             style={{
                               backgroundColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(241, 245, 249, 1)",
@@ -1118,7 +1106,7 @@ export default function LivePreviewPage() {
               className="py-12 px-6 flex flex-col gap-6 w-full"
             >
               <div className="max-w-2xl mx-auto w-full flex flex-col gap-6">
-                {blocks.map((block: any) => {
+                {blocks.map((block) => {
                   if (block.type === "text") {
                     return (
                       <p 
@@ -1414,7 +1402,7 @@ export default function LivePreviewPage() {
                             className="h-10 w-full rounded-xl border px-3.5 text-xs outline-none focus:border-[var(--accent-color)]"
                           >
                             <option value="">Selecciona una sucursal</option>
-                            {sucursales.map((suc: any) => (
+                            {sucursales.map((suc) => (
                               <option key={suc.id} value={suc.id}>{suc.nombre}</option>
                             ))}
                           </select>

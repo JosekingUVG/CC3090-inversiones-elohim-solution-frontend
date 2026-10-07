@@ -138,6 +138,9 @@ importers:
       jest-environment-jsdom:
         specifier: ^30.4.1
         version: 30.4.1
+      monaco-editor:
+        specifier: 0.56.0
+        version: 0.56.0
       typescript:
         specifier: ^5
         version: 5.9.3

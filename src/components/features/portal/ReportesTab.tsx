@@ -43,7 +43,7 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
   const [reportProductos, setReportProductos] = useState<TReporteProductos | null>(null);
   const [reportEmpleados, setReportEmpleados] = useState<TReporteEmpleados | null>(null);
   const [reportMetodosPago, setReportMetodosPago] = useState<TReporteMetodosPago | null>(null);
-  const [reportesLoading, setReportesLoading] = useState(false);
+  const [reportesLoading, setReportesLoading] = useState(Boolean(token && activeStore));
   const [reportesError, setReportesError] = useState<string | null>(null);
 
   // Date filters
@@ -65,7 +65,7 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
   // Custom SQL Console states
   const defaultSqlQuery = 'SELECT id, nombre, stock_actual, stock_minimo FROM public."Producto" WHERE tienda_id = @tenant_id AND stock_actual <= stock_minimo ORDER BY stock_actual ASC;';
   const [customQuery, setCustomQuery] = useState(defaultSqlQuery);
-  const [customQueryResult, setCustomQueryResult] = useState<Array<Record<string, any>> | null>(null);
+  const [customQueryResult, setCustomQueryResult] = useState<Array<Record<string, unknown>> | null>(null);
   const [customQueryError, setCustomQueryError] = useState<string | null>(null);
   const [customQueryLoading, setCustomQueryLoading] = useState(false);
   const [customQueryStats, setCustomQueryStats] = useState<{
@@ -79,13 +79,18 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
   const [showSchemaHelp, setShowSchemaHelp] = useState(true);
   const monacoEditorRef = useRef<MonacoSqlEditorHandle>(null);
 
+  const [previousRequest, setPreviousRequest] = useState({ token, activeStore, reportSubTab, reportFiltro });
+  if (previousRequest.token !== token || previousRequest.activeStore !== activeStore ||
+      previousRequest.reportSubTab !== reportSubTab || previousRequest.reportFiltro !== reportFiltro) {
+    setPreviousRequest({ token, activeStore, reportSubTab, reportFiltro });
+    setReportesLoading(Boolean(token && activeStore && reportSubTab !== "personalizado"));
+    setReportesError(null);
+  }
+
   // Fetch Reports Data
   useEffect(() => {
     if (!token || !activeStore) return;
     if (reportSubTab === "personalizado") return;
-
-    setReportesLoading(true);
-    setReportesError(null);
 
     const desdeIso = reportFiltro.desde ? new Date(`${reportFiltro.desde}T00:00:00`).toISOString() : undefined;
     const hastaIso = reportFiltro.hasta ? new Date(`${reportFiltro.hasta}T23:59:59`).toISOString() : undefined;
@@ -171,7 +176,7 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
   const exportarReporte = (format: "csv" | "xlsx") => {
     if (!token) return;
 
-    let data: any[] = [];
+    let data: Record<string, unknown>[] = [];
     let fileNameName = "";
 
     if (reportSubTab === "productos" && reportProductos) {

@@ -1,18 +1,21 @@
 "use client";
 
+import type { StoreConfig, SectionProperties } from "@/types/store-builder";
+import type { TiendaDto as BuilderTiendaDto } from "@/lib/api/admin";
+
 import { STORE_LAYOUT } from "@/components/features/portal/constructor/storeLayout";
 
 import React from "react";
 import { Store, ShoppingCart, ShoppingBag, Search, X } from "lucide-react";
 
 interface ConstructorPreviewProps {
-  storeConfig: any;
+  storeConfig: StoreConfig | null;
   activePageId: string;
   setActivePageId: (id: string) => void;
   selectedSectionId: string;
   setSelectedSectionId: (id: string) => void;
   previewDevice: "desktop" | "tablet" | "mobile";
-  activeStore: any;
+  activeStore: BuilderTiendaDto | null;
   constructorSearchTerm: string;
   setConstructorSearchTerm: (term: string) => void;
   setShowRightPanel?: (show: boolean) => void;
@@ -34,7 +37,7 @@ const isDarkBg = (bgColor: string) => {
   return false;
 };
 
-const getSectionStyle = (properties: any, theme: any) => {
+const getSectionStyle = (properties: SectionProperties) => {
   const styles: React.CSSProperties = {};
   if (!properties) return styles;
 
@@ -100,7 +103,8 @@ export function ConstructorPreview({
   setConstructorSearchTerm,
   setShowRightPanel
 }: ConstructorPreviewProps) {
-  const currentPage = storeConfig.pages.find((p: any) => p.id === activePageId) || storeConfig.pages[0];
+  if (!storeConfig) return null;
+  const currentPage = storeConfig.pages.find((p) => p.id === activePageId) || storeConfig.pages[0];
 
   const handleSelectSection = (id: string) => {
     setSelectedSectionId(id);
@@ -139,10 +143,10 @@ export function ConstructorPreview({
           }}
           className="flex-1 overflow-y-auto text-slate-900 flex flex-col font-sans select-none"
         >
-          {currentPage.sections.map((section: any) => {
+          {currentPage.sections.map((section) => {
             const isSelected = selectedSectionId === section.id;
             const props = section.properties || {};
-            const customStyle = getSectionStyle(props, storeConfig.theme);
+            const customStyle = getSectionStyle(props);
             const isDark = props.useGlassmorphism || isDarkBg(props.backgroundColor || "#FFFFFF");
 
             if (section.type === "announcement") {
@@ -189,13 +193,13 @@ export function ConstructorPreview({
                     </span>
                   </div>
                   <nav className={`${previewDevice === "mobile" ? "hidden" : "flex"} items-center gap-6`}>
-                    {storeConfig.pages.map((p: any) => (
+                    {storeConfig.pages.map((p) => (
                       <span
                         key={p.id}
                         onClick={(e) => {
                           e.stopPropagation();
                           setActivePageId(p.id);
-                          const targetPage = storeConfig.pages.find((page: any) => page.id === p.id);
+                          const targetPage = storeConfig.pages.find((page) => page.id === p.id);
                           if (targetPage && targetPage.sections.length > 0) {
                             setSelectedSectionId(targetPage.sections[0].id);
                           }
@@ -484,7 +488,7 @@ export function ConstructorPreview({
                   }`}
                 >
                   <div className="max-w-2xl mx-auto w-full flex flex-col gap-6">
-                    {blocks.map((block: any) => {
+                    {blocks.map((block) => {
                       if (block.type === "text") {
                         return (
                           <p 

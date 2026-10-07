@@ -20,7 +20,7 @@ interface UsuariosTabProps {
   usuarios: PlatformUsuarioDto[];
   loadingUsuarios: boolean;
   sucursales: SucursalDto[];
-  usuario: any;
+  usuario: import("@/stores/useAuthStore").TUsuario;
   esAdmin: boolean;
   onRefresh: () => void;
 }

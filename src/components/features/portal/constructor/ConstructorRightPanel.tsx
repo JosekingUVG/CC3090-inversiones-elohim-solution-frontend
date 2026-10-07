@@ -1,5 +1,8 @@
 "use client";
 
+import type { StoreConfig } from "@/types/store-builder";
+import type { TiendaDto as BuilderTiendaDto } from "@/lib/api/admin";
+
 import React, { useState, useRef, useEffect } from "react";
 import { Upload, Plus, Trash2, ArrowUp, ArrowDown, ArrowLeft, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -7,8 +10,8 @@ import { uploadToCloudinary } from "@/lib/cloudinary";
 import { ConstructorAgentPanel } from "./ConstructorAgentPanel";
 
 interface ConstructorRightPanelProps {
-  storeConfig: any;
-  setStoreConfig: React.Dispatch<React.SetStateAction<any>>;
+  storeConfig: StoreConfig | null;
+  setStoreConfig: React.Dispatch<React.SetStateAction<StoreConfig | null>>;
   activePageId: string;
   selectedSectionId: string;
   setSelectedSectionId: (id: string) => void;
@@ -16,19 +19,19 @@ interface ConstructorRightPanelProps {
   setShowRightPanel: (show: boolean) => void;
   panelMode?: "section" | "agent";
   setPanelMode?: (mode: "section" | "agent") => void;
-  activeStore?: any;
+  activeStore?: BuilderTiendaDto | null;
   token: string | null;
   cloudinaryConfig: {
     cloudName: string;
     apiKey: string;
     hasCredentials: boolean;
   };
-  handlePropertyChange: (property: string, value: any) => void;
+  handlePropertyChange: (property: string, value: unknown) => void;
   handleDeleteSection: () => void;
   handleMoveBlock: (sectionId: string, blockIndex: number, direction: "up" | "down") => void;
   handleAddBlock: (sectionId: string, blockType: "text" | "image" | "product_card") => void;
   handleDeleteBlock: (sectionId: string, blockIndex: number) => void;
-  handleBlockFieldChange: (sectionId: string, blockIndex: number, field: string, value: any) => void;
+  handleBlockFieldChange: (sectionId: string, blockIndex: number, field: string, value: unknown) => void;
 }
 
 export function ConstructorRightPanel({
@@ -51,12 +54,8 @@ export function ConstructorRightPanel({
   handleDeleteBlock,
   handleBlockFieldChange
 }: ConstructorRightPanelProps) {
-  if (selectedSectionId === "theme-settings" && panelMode !== "agent") {
-    return null; // The Left Panel handles design settings
-  }
-
-  const currentPage = storeConfig.pages.find((p: any) => p.id === activePageId) || storeConfig.pages[0];
-  const currentSection = currentPage.sections.find((s: any) => s.id === selectedSectionId);
+  const currentPage = storeConfig?.pages.find((p) => p.id === activePageId) || storeConfig?.pages[0];
+  const currentSection = currentPage?.sections.find((s) => s.id === selectedSectionId);
 
   const isAgentMode = panelMode === "agent";
   const isOpen = showRightPanel && (isAgentMode || Boolean(currentSection));
@@ -93,6 +92,12 @@ export function ConstructorRightPanel({
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, []);
+
+  if (selectedSectionId === "theme-settings" && panelMode !== "agent") {
+    return null; // The Left Panel handles design settings
+  }
+
+  if (!storeConfig) return null;
 
   const handleMouseDownResize = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -179,7 +184,7 @@ export function ConstructorRightPanel({
               <ConstructorAgentPanel
                 storeConfig={storeConfig}
                 setStoreConfig={setStoreConfig}
-                activeStore={activeStore}
+                activeStore={activeStore ?? null}
                 token={token}
               />
             </div>
@@ -202,7 +207,7 @@ export function ConstructorRightPanel({
                       {currentSection.name}
                     </span>
                     <span className="text-[9px] font-mono text-slate-500 uppercase">
-                      #{currentSection.id}
+                      #{currentSection?.id}
                     </span>
                   </div>
                 </div>
@@ -394,7 +399,7 @@ export function ConstructorRightPanel({
                       type="text"
                       value={item}
                       onChange={(e) => {
-                        const newItems = [...props.menuItems];
+                        const newItems = [...(props.menuItems || [])];
                         newItems[idx] = e.target.value;
                         handlePropertyChange("menuItems", newItems);
                       }}
@@ -402,7 +407,7 @@ export function ConstructorRightPanel({
                     />
                     <button
                       onClick={() => {
-                        const newItems = props.menuItems.filter((_: any, i: number) => i !== idx);
+                        const newItems = (props.menuItems || []).filter((_, i: number) => i !== idx);
                         handlePropertyChange("menuItems", newItems);
                       }}
                       className="p-2 h-9 rounded-xl border border-slate-800 hover:border-red-500 hover:text-red-400 bg-transparent text-slate-500 transition-all cursor-pointer flex items-center justify-center"
@@ -505,8 +510,8 @@ export function ConstructorRightPanel({
                   >
                     <option value="">Selecciona sección...</option>
                     {(currentPage?.sections || [])
-                      .filter((s: any) => s.id !== "announcement" && s.id !== "header" && s.id !== "footer")
-                      .map((s: any) => (
+                      .filter((s) => s.id !== "announcement" && s.id !== "header" && s.id !== "footer")
+                      .map((s) => (
                         <option key={s.id} value={s.id}>{s.name} (#{s.id})</option>
                       ))}
                   </select>
@@ -519,7 +524,7 @@ export function ConstructorRightPanel({
                     className="h-9 px-2 rounded-xl border border-slate-800 bg-slate-955 text-slate-350 text-xs outline-none focus:border-[#22D3A6] cursor-pointer"
                   >
                     <option value="">Selecciona página...</option>
-                    {(storeConfig.pages || []).map((p: any) => (
+                    {(storeConfig.pages || []).map((p) => (
                       <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
                     ))}
                   </select>
@@ -564,8 +569,8 @@ export function ConstructorRightPanel({
                   >
                     <option value="">Selecciona sección...</option>
                     {(currentPage?.sections || [])
-                      .filter((s: any) => s.id !== "announcement" && s.id !== "header" && s.id !== "footer")
-                      .map((s: any) => (
+                      .filter((s) => s.id !== "announcement" && s.id !== "header" && s.id !== "footer")
+                      .map((s) => (
                         <option key={s.id} value={s.id}>{s.name} (#{s.id})</option>
                       ))}
                   </select>
@@ -578,7 +583,7 @@ export function ConstructorRightPanel({
                     className="h-9 px-2 rounded-xl border border-slate-800 bg-slate-955 text-slate-350 text-xs outline-none focus:border-[#22D3A6] cursor-pointer"
                   >
                     <option value="">Selecciona página...</option>
-                    {(storeConfig.pages || []).map((p: any) => (
+                    {(storeConfig.pages || []).map((p) => (
                       <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
                     ))}
                   </select>
@@ -786,7 +791,7 @@ export function ConstructorRightPanel({
           <div className="flex flex-col gap-4">
             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Bloques Contenidos</span>
             <div className="flex flex-col gap-3">
-              {(props.blocks || []).map((block: any, idx: number) => (
+              {(props.blocks || []).map((block, idx: number) => (
                 <div key={block.id} className="p-3 rounded-xl border border-slate-900 bg-slate-955/20 space-y-2.5">
                   <div className="flex justify-between items-center border-b border-slate-900/60 pb-1.5">
                     <span className="text-[9px] font-bold uppercase text-[#38BDF8]">
@@ -794,21 +799,21 @@ export function ConstructorRightPanel({
                     </span>
                     <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => handleMoveBlock(currentSection.id, idx, "up")}
+                        onClick={() => handleMoveBlock(currentSection?.id, idx, "up")}
                         disabled={idx === 0}
                         className="p-1 rounded bg-slate-900 hover:bg-slate-800 disabled:opacity-30 border-none cursor-pointer text-slate-400 hover:text-white"
                       >
                         <ArrowUp size={10} />
                       </button>
                       <button
-                        onClick={() => handleMoveBlock(currentSection.id, idx, "down")}
-                        disabled={idx === (props.blocks.length - 1)}
+                        onClick={() => handleMoveBlock(currentSection?.id, idx, "down")}
+                        disabled={idx === ((props.blocks || []).length - 1)}
                         className="p-1 rounded bg-slate-900 hover:bg-slate-800 disabled:opacity-30 border-none cursor-pointer text-slate-400 hover:text-white"
                       >
                         <ArrowDown size={10} />
                       </button>
                       <button
-                        onClick={() => handleDeleteBlock(currentSection.id, idx)}
+                        onClick={() => handleDeleteBlock(currentSection?.id, idx)}
                         className="p-1 rounded bg-slate-900 hover:bg-rose-950/20 hover:text-rose-400 border-none cursor-pointer text-slate-500"
                       >
                         <Trash2 size={10} />
@@ -819,7 +824,7 @@ export function ConstructorRightPanel({
                   {block.type === "text" && (
                     <textarea
                       value={block.content || ""}
-                      onChange={(e) => handleBlockFieldChange(currentSection.id, idx, "content", e.target.value)}
+                      onChange={(e) => handleBlockFieldChange(currentSection?.id, idx, "content", e.target.value)}
                       placeholder="Escribe tu texto personalizado..."
                       className="w-full h-16 p-2 rounded-lg border border-slate-800 bg-slate-955 text-slate-300 text-xs outline-none focus:border-[#22D3A6] resize-none"
                     />
@@ -831,7 +836,7 @@ export function ConstructorRightPanel({
                         <input
                           type="text"
                           value={block.url || ""}
-                          onChange={(e) => handleBlockFieldChange(currentSection.id, idx, "url", e.target.value)}
+                          onChange={(e) => handleBlockFieldChange(currentSection?.id, idx, "url", e.target.value)}
                           placeholder="URL Imagen..."
                           className="flex-1 h-8 px-2.5 rounded-lg border border-slate-800 bg-slate-955 text-slate-350 text-[10px] outline-none focus:border-[#22D3A6]"
                         />
@@ -848,7 +853,7 @@ export function ConstructorRightPanel({
                                   try {
                                     toast.loading("Subiendo bloque imagen...");
                                     const url = await uploadToCloudinary(file, token!);
-                                    handleBlockFieldChange(currentSection.id, idx, "url", url);
+                                    handleBlockFieldChange(currentSection?.id, idx, "url", url);
                                     toast.dismiss();
                                     toast.success("Imagen de bloque subida correctamente");
                                   } catch (err) {
@@ -869,7 +874,7 @@ export function ConstructorRightPanel({
                     <input
                       type="text"
                       value={block.title || ""}
-                      onChange={(e) => handleBlockFieldChange(currentSection.id, idx, "title", e.target.value)}
+                      onChange={(e) => handleBlockFieldChange(currentSection?.id, idx, "title", e.target.value)}
                       placeholder="Título de la tarjeta..."
                       className="h-8 w-full px-2.5 rounded-lg border border-slate-800 bg-slate-955 text-slate-300 text-xs outline-none focus:border-[#22D3A6]"
                     />
@@ -1064,7 +1069,7 @@ export function ConstructorRightPanel({
         </div>
 
         {/* DELETE SECTION BUTTON */}
-        {!["header", "footer"].includes(currentSection.id) && (
+        {!["header", "footer"].includes(currentSection?.id) && (
           <div className="border-t border-slate-900 pt-4 mt-2">
             <button
               onClick={handleDeleteSection}
@@ -1082,6 +1087,7 @@ export function ConstructorRightPanel({
   );
 
   function addBlockType(blockType: "text" | "image" | "product_card") {
+    if (!currentSection) return;
     handleAddBlock(currentSection.id, blockType);
     toast.success(`Bloque de ${blockType} añadido`);
   }

@@ -1,8 +1,12 @@
 "use client";
 
+import { useHydrated } from "@/hooks/useHydrated";
+
+import type { StoreConfig, StoreSection } from "@/types/store-builder";
+
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { changedPageIds, serializeDesign } from "@/lib/constructor/unsaved-changes";
 import { toast } from "sonner";
 import {
@@ -46,7 +50,7 @@ export default function ConstructorPage() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const token = useAuthStore((state) => state.token);
   const router = useRouter();
-  const historyApi = useStoreBuilderHistory<any>();
+  const historyApi = useStoreBuilderHistory<StoreConfig>();
   const {
     configuracion: storeConfig,
     setConfiguracion: setStoreConfig,
@@ -120,13 +124,13 @@ export default function ConstructorPage() {
     hasCredentials: boolean;
   }>({ cloudName: "", apiKey: "", hasCredentials: false });
 
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useHydrated();
   const previewConfig = selectedHistoryVersion?.config ?? storeConfig;
 
   const navigateWithTransition = (href: string) => {
     if (hasUnsavedChanges && !window.confirm("Tienes cambios sin guardar. ¿Quieres salir y descartarlos?")) return;
-    if (typeof document !== "undefined" && (document as any).startViewTransition) {
-      (document as any).startViewTransition(() => {
+    if (typeof document !== "undefined" && document.startViewTransition) {
+      document.startViewTransition(() => {
         router.push(href);
       });
     } else {
@@ -155,68 +159,12 @@ export default function ConstructorPage() {
       router.push("/login");
       return;
     }
-    const timer = setTimeout(() => {
-      setIsHydrated(true);
-    }, 100);
-    return () => clearTimeout(timer);
   }, [router]);
 
-  useEffect(() => {
-    if (isAuthenticated && token) {
-      setIsHydrated(true);
-    }
-  }, [isAuthenticated, token]);
-
-  // Load stores
-  useEffect(() => {
-    if (isHydrated && token) {
-      getTiendas(token)
-        .then((data) => {
-          setTiendas(data);
-          const storedTenantId = window.localStorage.getItem("active_tenant_id");
-          if (storedTenantId) {
-            const found = data.find((t) => t.id === storedTenantId);
-            if (found) {
-              setActiveStore(found);
-              return;
-            }
-          }
-          if (data.length > 0) {
-            setActiveStore(data[0]);
-            window.localStorage.setItem("active_tenant_id", data[0].id);
-          }
-        })
-        .catch((err) => {
-          console.error("Error al cargar tiendas", err);
-          toast.error("No se pudieron cargar las tiendas.");
-        });
-    }
-  }, [isHydrated, token]);
-
-  // Load integrations for Cloudinary config
-  useEffect(() => {
-    if (isHydrated && token && activeStore) {
-      getIntegraciones(token)
-        .then((data) => {
-          if (data.cloudinaryCloudName && data.cloudinaryApiKey && data.cloudinaryApiSecret) {
-            setCloudinaryConfig({
-              cloudName: data.cloudinaryCloudName,
-              apiKey: data.cloudinaryApiKey,
-              hasCredentials: true
-            });
-          } else {
-            setCloudinaryConfig({ cloudName: "", apiKey: "", hasCredentials: false });
-          }
-        })
-        .catch((err) => {
-          console.error("Error fetching integrations in constructor", err);
-        });
-    }
-  }, [isHydrated, token, activeStore]);
-
   // Load visual config
-  useEffect(() => {
-    if (activeStore) {
+  const initializeStore = useCallback((activeStore: TiendaDto) => {
+    setActiveStore(activeStore);
+    {
       let config = null;
       if (activeStore.configuracionVisual) {
         try {
@@ -325,13 +273,60 @@ export default function ConstructorPage() {
         };
       }
 
-      setStoreConfig(config);
       setSavedDesign(serializeDesign(config));
       resetHistory(config);
       initializedConfig.current = false;
       setActivePageId(config.currentPageId || "home");
     }
-  }, [activeStore, resetHistory]);
+  }, [resetHistory]);
+
+
+  // Load stores
+  useEffect(() => {
+    if (isHydrated && token) {
+      getTiendas(token)
+        .then((data) => {
+          setTiendas(data);
+          const storedTenantId = window.localStorage.getItem("active_tenant_id");
+          if (storedTenantId) {
+            const found = data.find((t) => t.id === storedTenantId);
+            if (found) {
+              initializeStore(found);
+              return;
+            }
+          }
+          if (data.length > 0) {
+            initializeStore(data[0]);
+            window.localStorage.setItem("active_tenant_id", data[0].id);
+          }
+        })
+        .catch((err) => {
+          console.error("Error al cargar tiendas", err);
+          toast.error("No se pudieron cargar las tiendas.");
+        });
+    }
+  }, [isHydrated, token, initializeStore]);
+
+  // Load integrations for Cloudinary config
+  useEffect(() => {
+    if (isHydrated && token && activeStore) {
+      getIntegraciones(token)
+        .then((data) => {
+          if (data.cloudinaryCloudName && data.cloudinaryApiKey && data.cloudinaryApiSecret) {
+            setCloudinaryConfig({
+              cloudName: data.cloudinaryCloudName,
+              apiKey: data.cloudinaryApiKey,
+              hasCredentials: true
+            });
+          } else {
+            setCloudinaryConfig({ cloudName: "", apiKey: "", hasCredentials: false });
+          }
+        })
+        .catch((err) => {
+          console.error("Error fetching integrations in constructor", err);
+        });
+    }
+  }, [isHydrated, token, activeStore]);
 
   useEffect(() => {
     if (!token || !activeStore) return;
@@ -374,16 +369,17 @@ export default function ConstructorPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [undo, redo]);
 
-  const handlePropertyChange = (property: string, value: any) => {
+  const handlePropertyChange = (property: string, value: unknown) => {
     if (!storeConfig) return;
-    setStoreConfig((prev: any) => {
-      const currentPage = prev.pages.find((p: any) => p.id === activePageId) || prev.pages[0];
-      const section = currentPage.sections.find((s: any) => s.id === selectedSectionId);
+    setStoreConfig((prev) => {
+      if (!prev) return prev;
+      const currentPage = prev.pages.find((p) => p.id === activePageId) || prev.pages[0];
+      const section = currentPage.sections.find((s) => s.id === selectedSectionId);
       const isSharedSection = ["header", "footer"].includes(selectedSectionId) || section?.type === "announcement" || selectedSectionId === "announcement";
 
-      const updatedPages = prev.pages.map((page: any) => {
+      const updatedPages = prev.pages.map((page) => {
         if (isSharedSection || page.id === activePageId) {
-          const updatedSections = page.sections.map((sec: any) => {
+          const updatedSections = page.sections.map((sec) => {
             if (sec.id === selectedSectionId) {
               return {
                 ...sec,
@@ -400,12 +396,12 @@ export default function ConstructorPage() {
         return page;
       });
 
-      const activePage = updatedPages.find((p: any) => p.id === activePageId) || updatedPages[0];
+      const activePage = updatedPages.find((p) => p.id === activePageId) || updatedPages[0];
 
       return {
         ...prev,
         pages: updatedPages,
-        sections: activePage.sections
+        sections: activePage?.sections ?? []
       };
     });
   };
@@ -429,8 +425,9 @@ export default function ConstructorPage() {
     e.preventDefault();
     if (!draggedSectionId || draggedSectionId === targetId || ["header", "footer"].includes(targetId)) return;
 
-    setStoreConfig((prev: any) => {
-      const currentPage = prev.pages.find((p: any) => p.id === activePageId) || prev.pages[0];
+    setStoreConfig((prev) => {
+      if (!prev) return prev;
+      const currentPage = prev.pages.find((p) => p.id === activePageId) || prev.pages[0];
       const sections = [...currentPage.sections];
       const draggedIdx = sections.findIndex((s) => s.id === draggedSectionId);
       const targetIdx = sections.findIndex((s) => s.id === targetId);
@@ -440,7 +437,7 @@ export default function ConstructorPage() {
         sections.splice(targetIdx, 0, moved);
       }
 
-      const updatedPages = prev.pages.map((page: any) => {
+      const updatedPages = prev.pages.map((page) => {
         if (page.id === activePageId) {
           return { ...page, sections };
         }
@@ -470,16 +467,17 @@ export default function ConstructorPage() {
 
     if (!pageId) return;
 
-    setStoreConfig((prev: any) => {
-      if (prev.pages.some((p: any) => p.id === pageId)) {
+    setStoreConfig((prev) => {
+      if (!prev) return prev;
+      if (prev.pages.some((p) => p.id === pageId)) {
         toast.error("Ya existe una página con ese nombre.");
         return prev;
       }
 
-      const homePage = prev.pages.find((p: any) => p.id === "home") || prev.pages[0];
-      const announcement = homePage.sections.find((s: any) => s.type === "announcement");
-      const header = homePage.sections.find((s: any) => s.type === "header");
-      const footer = homePage.sections.find((s: any) => s.type === "footer");
+      const homePage = prev.pages.find((p) => p.id === "home") || prev.pages[0];
+      const announcement = homePage.sections.find((s) => s.type === "announcement");
+      const header = homePage.sections.find((s) => s.type === "header");
+      const footer = homePage.sections.find((s) => s.type === "footer");
 
       const newPageSections = [];
       if (announcement) newPageSections.push(announcement);
@@ -508,10 +506,10 @@ export default function ConstructorPage() {
       };
 
       const updatedPages = [...prev.pages, newPage];
-      const menuItems = updatedPages.map((p: any) => p.name);
+      const menuItems = updatedPages.map((p) => p.name);
       
-      const fullyUpdatedPages = updatedPages.map((page: any) => {
-        const sectionsWithUpdatedHeader = page.sections.map((sec: any) => {
+      const fullyUpdatedPages = updatedPages.map((page) => {
+        const sectionsWithUpdatedHeader = page.sections.map((sec) => {
           if (sec.type === "header") {
             return {
               ...sec,
@@ -531,12 +529,12 @@ export default function ConstructorPage() {
       setNewPageName("");
       setActivePageId(pageId);
 
-      const activePage = fullyUpdatedPages.find((p: any) => p.id === pageId);
+      const activePage = fullyUpdatedPages.find((p) => p.id === pageId);
 
       return {
         ...prev,
         pages: fullyUpdatedPages,
-        sections: activePage.sections
+        sections: activePage?.sections ?? []
       };
     });
   };
@@ -546,7 +544,7 @@ export default function ConstructorPage() {
     if (!newSectionName.trim()) return;
 
     const newSecId = `section-${Date.now()}`;
-    const newSection: any = {
+    const newSection: StoreSection = {
       id: newSecId,
       type: newSectionType,
       name: newSectionName.trim(),
@@ -601,8 +599,9 @@ export default function ConstructorPage() {
       };
     }
 
-    setStoreConfig((prev: any) => {
-      const currentPage = prev.pages.find((p: any) => p.id === activePageId) || prev.pages[0];
+    setStoreConfig((prev) => {
+      if (!prev) return prev;
+      const currentPage = prev.pages.find((p) => p.id === activePageId) || prev.pages[0];
       const sections = [...currentPage.sections];
       
       const footerIdx = sections.findIndex((s) => s.id === "footer" || s.type === "footer");
@@ -612,7 +611,7 @@ export default function ConstructorPage() {
         sections.push(newSection);
       }
 
-      const updatedPages = prev.pages.map((page: any) => {
+      const updatedPages = prev.pages.map((page) => {
         if (page.id === activePageId) {
           return { ...page, sections };
         }
@@ -634,16 +633,18 @@ export default function ConstructorPage() {
   };
 
   const handleDeleteSection = () => {
+    if (!storeConfig) return;
     if (["header", "footer"].includes(selectedSectionId)) {
       toast.error("No se puede eliminar una sección compartida obligatoria (Header, Footer)");
       return;
     }
 
-    setStoreConfig((prev: any) => {
-      const currentPage = prev.pages.find((p: any) => p.id === activePageId) || prev.pages[0];
-      const sections = currentPage.sections.filter((s: any) => s.id !== selectedSectionId);
+    setStoreConfig((prev) => {
+      if (!prev) return prev;
+      const currentPage = prev.pages.find((p) => p.id === activePageId) || prev.pages[0];
+      const sections = currentPage.sections.filter((s) => s.id !== selectedSectionId);
 
-      const updatedPages = prev.pages.map((page: any) => {
+      const updatedPages = prev.pages.map((page) => {
         if (page.id === activePageId) {
           return { ...page, sections };
         }
@@ -657,8 +658,8 @@ export default function ConstructorPage() {
       };
     });
 
-    const currentPage = storeConfig.pages.find((p: any) => p.id === activePageId) || storeConfig.pages[0];
-    const remainingSections = currentPage.sections.filter((s: any) => s.id !== selectedSectionId);
+    const currentPage = storeConfig.pages.find((p) => p.id === activePageId) || storeConfig.pages[0];
+    const remainingSections = currentPage.sections.filter((s) => s.id !== selectedSectionId);
     if (remainingSections.length > 0) {
       setSelectedSectionId(remainingSections[0].id);
     } else {
@@ -669,10 +670,11 @@ export default function ConstructorPage() {
   };
 
   const handleMoveBlock = (sectionId: string, blockIndex: number, direction: "up" | "down") => {
-    setStoreConfig((prev: any) => {
-      const updatedPages = prev.pages.map((page: any) => {
+    setStoreConfig((prev) => {
+      if (!prev) return prev;
+      const updatedPages = prev.pages.map((page) => {
         if (page.id === activePageId) {
-          const updatedSections = page.sections.map((sec: any) => {
+          const updatedSections = page.sections.map((sec) => {
             if (sec.id === sectionId) {
               const blocks = [...(sec.properties.blocks || [])];
               const targetIdx = direction === "up" ? blockIndex - 1 : blockIndex + 1;
@@ -692,21 +694,22 @@ export default function ConstructorPage() {
         return page;
       });
 
-      const activePage = updatedPages.find((p: any) => p.id === activePageId) || updatedPages[0];
+      const activePage = updatedPages.find((p) => p.id === activePageId) || updatedPages[0];
 
       return {
         ...prev,
         pages: updatedPages,
-        sections: activePage.sections
+        sections: activePage?.sections ?? []
       };
     });
   };
 
   const handleAddBlock = (sectionId: string, blockType: "text" | "image" | "product_card") => {
-    setStoreConfig((prev: any) => {
-      const updatedPages = prev.pages.map((page: any) => {
+    setStoreConfig((prev) => {
+      if (!prev) return prev;
+      const updatedPages = prev.pages.map((page) => {
         if (page.id === activePageId) {
-          const updatedSections = page.sections.map((sec: any) => {
+          const updatedSections = page.sections.map((sec) => {
             if (sec.id === sectionId) {
               const blocks = [...(sec.properties.blocks || [])];
               const newBlock = {
@@ -729,21 +732,22 @@ export default function ConstructorPage() {
         return page;
       });
 
-      const activePage = updatedPages.find((p: any) => p.id === activePageId) || updatedPages[0];
+      const activePage = updatedPages.find((p) => p.id === activePageId) || updatedPages[0];
 
       return {
         ...prev,
         pages: updatedPages,
-        sections: activePage.sections
+        sections: activePage?.sections ?? []
       };
     });
   };
 
   const handleDeleteBlock = (sectionId: string, blockIndex: number) => {
-    setStoreConfig((prev: any) => {
-      const updatedPages = prev.pages.map((page: any) => {
+    setStoreConfig((prev) => {
+      if (!prev) return prev;
+      const updatedPages = prev.pages.map((page) => {
         if (page.id === activePageId) {
-          const updatedSections = page.sections.map((sec: any) => {
+          const updatedSections = page.sections.map((sec) => {
             if (sec.id === sectionId) {
               const blocks = [...(sec.properties.blocks || [])];
               blocks.splice(blockIndex, 1);
@@ -759,21 +763,22 @@ export default function ConstructorPage() {
         return page;
       });
 
-      const activePage = updatedPages.find((p: any) => p.id === activePageId) || updatedPages[0];
+      const activePage = updatedPages.find((p) => p.id === activePageId) || updatedPages[0];
 
       return {
         ...prev,
         pages: updatedPages,
-        sections: activePage.sections
+        sections: activePage?.sections ?? []
       };
     });
   };
 
-  const handleBlockFieldChange = (sectionId: string, blockIndex: number, field: string, value: any) => {
-    setStoreConfig((prev: any) => {
-      const updatedPages = prev.pages.map((page: any) => {
+  const handleBlockFieldChange = (sectionId: string, blockIndex: number, field: string, value: unknown) => {
+    setStoreConfig((prev) => {
+      if (!prev) return prev;
+      const updatedPages = prev.pages.map((page) => {
         if (page.id === activePageId) {
-          const updatedSections = page.sections.map((sec: any) => {
+          const updatedSections = page.sections.map((sec) => {
             if (sec.id === sectionId) {
               const blocks = [...(sec.properties.blocks || [])];
               blocks[blockIndex] = {
@@ -792,12 +797,12 @@ export default function ConstructorPage() {
         return page;
       });
 
-      const activePage = updatedPages.find((p: any) => p.id === activePageId) || updatedPages[0];
+      const activePage = updatedPages.find((p) => p.id === activePageId) || updatedPages[0];
 
       return {
         ...prev,
         pages: updatedPages,
-        sections: activePage.sections
+        sections: activePage?.sections ?? []
       };
     });
   };
@@ -808,12 +813,13 @@ export default function ConstructorPage() {
       return;
     }
 
-    setStoreConfig((prev: any) => {
-      const updatedPages = prev.pages.filter((p: any) => p.id !== pageId);
-      const menuItems = updatedPages.map((p: any) => p.name);
+    setStoreConfig((prev) => {
+      if (!prev) return prev;
+      const updatedPages = prev.pages.filter((p) => p.id !== pageId);
+      const menuItems = updatedPages.map((p) => p.name);
 
-      const fullyUpdatedPages = updatedPages.map((page: any) => {
-        const sectionsWithUpdatedHeader = page.sections.map((sec: any) => {
+      const fullyUpdatedPages = updatedPages.map((page) => {
+        const sectionsWithUpdatedHeader = page.sections.map((sec) => {
           if (sec.type === "header") {
             return {
               ...sec,
@@ -831,12 +837,12 @@ export default function ConstructorPage() {
       toast.success("Página eliminada.");
       setActivePageId("home");
 
-      const activePage = fullyUpdatedPages.find((p: any) => p.id === "home");
+      const activePage = fullyUpdatedPages.find((p) => p.id === "home");
 
       return {
         ...prev,
         pages: fullyUpdatedPages,
-        sections: activePage.sections
+        sections: activePage?.sections ?? []
       };
     });
   };
@@ -863,9 +869,7 @@ export default function ConstructorPage() {
     setIsRestoringVersion(true);
     try {
       const updated = await restaurarConfiguracion(token, version);
-      const config = JSON.parse(updated.configuracionVisual);
-      resetHistory(config);
-      setActiveStore(updated);
+      initializeStore(updated);
       const response = await getConfiguracionHistorial(token);
       setPersistedHistory(response.history);
       setSelectedHistoryVersion(null);

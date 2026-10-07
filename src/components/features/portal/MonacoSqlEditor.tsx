@@ -34,7 +34,7 @@ export const MonacoSqlEditor = forwardRef<MonacoSqlEditorHandle, MonacoSqlEditor
     const t = useTranslations("SqlEditor");
     const editorRef = useRef<MonacoEditor | null>(null);
     const monacoRef = useRef<MonacoInstance | null>(null);
-    const completionDisposableRef = useRef<any>(null);
+    const completionDisposableRef = useRef<{ dispose(): void } | null>(null);
     const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
     const [lineCount, setLineCount] = useState(1);
 
@@ -165,7 +165,7 @@ export const MonacoSqlEditor = forwardRef<MonacoSqlEditorHandle, MonacoSqlEditor
       // Register PostgreSQL & Tenant ID completion provider
       completionDisposableRef.current = monaco.languages.registerCompletionItemProvider("sql", {
         triggerCharacters: [" ", ".", "@", "W", "w", "T", "t", '"', "s", "S", "j", "J", "p", "P", "*"],
-        provideCompletionItems: (model: any, position: any) => {
+        provideCompletionItems: (model: import("monaco-editor").editor.ITextModel, position: import("monaco-editor").Position) => {
           const word = model.getWordUntilPosition(position);
           const lineContent = model.getLineContent(position.lineNumber);
           const textBeforeWord = lineContent.substring(0, word.startColumn - 1);
@@ -177,7 +177,7 @@ export const MonacoSqlEditor = forwardRef<MonacoSqlEditorHandle, MonacoSqlEditor
             endColumn: word.endColumn,
           };
 
-          const suggestions: Array<Record<string, unknown>> = [];
+          const suggestions: import("monaco-editor").languages.CompletionItem[] = [];
 
           // 1. Mandatory / Tenant Context suggestions (Top Priority)
           suggestions.push({
@@ -308,7 +308,7 @@ export const MonacoSqlEditor = forwardRef<MonacoSqlEditorHandle, MonacoSqlEditor
             });
           });
 
-          return { suggestions: suggestions as any };
+          return { suggestions };
         },
       });
 

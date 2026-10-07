@@ -1,5 +1,8 @@
 "use client";
 
+import type { StoreConfig } from "@/types/store-builder";
+import type { TiendaDto as BuilderTiendaDto } from "@/lib/api/admin";
+
 import React, { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import type { OnMount } from "@monaco-editor/react";
@@ -39,9 +42,9 @@ const Editor = dynamic(() => import("@monaco-editor/react"), {
 });
 
 interface ConstructorAgentPanelProps {
-  storeConfig: any;
-  setStoreConfig: React.Dispatch<React.SetStateAction<any>>;
-  activeStore: any;
+  storeConfig: StoreConfig | null;
+  setStoreConfig: React.Dispatch<React.SetStateAction<StoreConfig | null>>;
+  activeStore: BuilderTiendaDto | null;
   token?: string | null;
 }
 
@@ -50,9 +53,9 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   plan?: string;
-  appliedConfig?: any;
+  appliedConfig?: StoreConfig;
   isApplied?: boolean;
-  productsToCreate?: any[];
+  productsToCreate?: import("@/lib/agent/store-builder-agent").AgentProduct[];
   isProductsCreated?: boolean;
 }
 
@@ -70,12 +73,119 @@ export function ConstructorAgentPanel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [editorHeight, setEditorHeight] = useState<number>(180);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
   // Auto-scroll when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  const insertXmlTag = (tag: string) => {
+    if (!editorRef.current) {
+      setInput((prev) => `${prev}\n<${tag}>\n  \n</${tag}>\n`.trim());
+      return;
+    }
+    const editor = editorRef.current;
+    const selection = editor.getSelection();
+    if (!selection) return;
+    const selectedText = editor.getModel()?.getValueInRange(selection) || "";
+    const snippet = selectedText
+      ? `<${tag}>\n  ${selectedText}\n</${tag}>\n`
+      : `<${tag}>\n  \n</${tag}>\n`;
+
+    editor.executeEdits("insert-tag", [
+      {
+        range: selection,
+        text: snippet,
+        forceMoveMarkers: true,
+      },
+    ]);
+    const newVal = editor.getValue();
+    setInput(newVal);
+    editor.focus();
+  };
+
+  const handleSendMessage = async (textToSend?: string) => {
+    const promptText = (textToSend !== undefined ? textToSend : input).trim();
+    if (!promptText || isLoading) return;
+
+    setInput("");
+    if (editorRef.current) {
+      editorRef.current.setValue("");
+    }
+    setErrorMessage(null);
+
+    const userMessage: ChatMessage = {
+      id: `user-${crypto.randomUUID()}`,
+      role: "user",
+      content: promptText
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/agent/store-builder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: promptText,
+          storeConfig,
+          activeStore,
+          history: messages.map((m) => ({
+            role: m.role,
+            content: m.content
+          }))
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Error al comunicarse con el agente.");
+      }
+
+      if (data.action === "clarification") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `assistant-${crypto.randomUUID()}`,
+            role: "assistant",
+            content: data.message
+          }
+        ]);
+        return;
+      }
+
+      if (data.action === "build" || data.storeConfig || data.config) {
+        const newStoreConfig = data.storeConfig || data.config;
+
+        const assistantMessage: ChatMessage = {
+          id: `assistant-${crypto.randomUUID()}`,
+          role: "assistant",
+          content: data.explanation || "He actualizado el diseño y textos de tu tienda según lo planificado.",
+          plan: data.plan,
+          appliedConfig: newStoreConfig,
+          isApplied: Boolean(newStoreConfig),
+          productsToCreate: data.productsToCreate || data.products || []
+        };
+
+        setMessages((prev) => [...prev, assistantMessage]);
+
+        if (newStoreConfig) {
+          setStoreConfig(newStoreConfig);
+          toast.success("¡Diseño y textos aplicados a la tienda!");
+        }
+      }
+    } catch (err) {
+      console.error("Error en agente:", err);
+      const msg = (err instanceof Error ? err.message : "") || "Ocurrió un error inesperado al procesar la solicitud.";
+      setErrorMessage(msg);
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -113,112 +223,6 @@ export function ConstructorAgentPanel({
     monaco.editor.setTheme("agent-xml-dark");
   };
 
-  const insertXmlTag = (tag: string) => {
-    if (!editorRef.current) {
-      setInput((prev) => `${prev}\n<${tag}>\n  \n</${tag}>\n`.trim());
-      return;
-    }
-    const editor = editorRef.current;
-    const selection = editor.getSelection();
-    const selectedText = editor.getModel()?.getValueInRange(selection) || "";
-    const snippet = selectedText
-      ? `<${tag}>\n  ${selectedText}\n</${tag}>\n`
-      : `<${tag}>\n  \n</${tag}>\n`;
-
-    editor.executeEdits("insert-tag", [
-      {
-        range: selection,
-        text: snippet,
-        forceMoveMarkers: true,
-      },
-    ]);
-    const newVal = editor.getValue();
-    setInput(newVal);
-    editor.focus();
-  };
-
-  const handleSendMessage = async (textToSend?: string) => {
-    const promptText = (textToSend !== undefined ? textToSend : input).trim();
-    if (!promptText || isLoading) return;
-
-    setInput("");
-    if (editorRef.current) {
-      editorRef.current.setValue("");
-    }
-    setErrorMessage(null);
-
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: promptText
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-
-    try {
-      const response = await fetch("/api/agent/store-builder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: promptText,
-          storeConfig,
-          activeStore,
-          history: messages.map((m) => ({
-            role: m.role,
-            content: m.content
-          }))
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Error al comunicarse con el agente.");
-      }
-
-      if (data.action === "clarification") {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `assistant-${Date.now()}`,
-            role: "assistant",
-            content: data.message
-          }
-        ]);
-        return;
-      }
-
-      if (data.action === "build" || data.storeConfig || data.config) {
-        const newStoreConfig = data.storeConfig || data.config;
-
-        const assistantMessage: ChatMessage = {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content: data.explanation || "He actualizado el diseño y textos de tu tienda según lo planificado.",
-          plan: data.plan,
-          appliedConfig: newStoreConfig,
-          isApplied: Boolean(newStoreConfig),
-          productsToCreate: data.productsToCreate || data.products || []
-        };
-
-        setMessages((prev) => [...prev, assistantMessage]);
-
-        if (newStoreConfig) {
-          setStoreConfig(newStoreConfig);
-          toast.success("¡Diseño y textos aplicados a la tienda!");
-        }
-      }
-    } catch (err: any) {
-      console.error("Error en agente:", err);
-      const msg = err.message || "Ocurrió un error inesperado al procesar la solicitud.";
-      setErrorMessage(msg);
-      toast.error(msg);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleCreateProducts = async (msg: ChatMessage) => {
     if (!msg.productsToCreate || msg.productsToCreate.length === 0 || !token) {
       toast.error("No hay productos sugeridos o falta sesión activa.");
@@ -233,9 +237,9 @@ export function ConstructorAgentPanel({
         sku: p.sku || `SKU-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
         descripcion: p.descripcion || "",
         precioDetalle: Number(p.precioDetalle) || 0,
-        precioMayoreo: Number(p.precioMayorista) || Number(p.precioMayoreo) || Number(p.precioDetalle) || 0,
+        precioMayoreo: Number(p.precioMayoreo) || Number(p.precioDetalle) || 0,
         stockActual: Number(p.stockActual) || 25,
-        stockMinimo: Number(p.stockMinimo) || 5,
+        stockMinimo: 5,
         imagenUrl: p.imagenUrl || "",
         publicado: true,
       }));
@@ -249,9 +253,9 @@ export function ConstructorAgentPanel({
           m.id === msg.id ? { ...m, isProductsCreated: true } : m
         )
       );
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error al crear productos desde el agente:", err);
-      toast.error(err.message || "Error al crear productos en la base de datos.");
+      toast.error((err instanceof Error ? err.message : "") || "Error al crear productos en la base de datos.");
     } finally {
       setCreatingProductsId(null);
     }

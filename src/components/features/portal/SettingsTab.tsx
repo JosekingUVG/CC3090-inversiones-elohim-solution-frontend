@@ -1,5 +1,8 @@
 "use client";
 
+import type { StoreVisualConfig } from "@/types/store-builder";
+import type { TiendaDto } from "@/lib/api/admin";
+
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -23,11 +26,10 @@ import { uploadToCloudinary } from "@/lib/cloudinary";
 interface SettingsTabProps {
   token: string | null;
   esAdmin: boolean;
-  activeStore: any;
-  setActiveStore: (store: any) => void;
-  storeConfig: any;
-  setStoreConfig: (config: any) => void;
-  setTiendas: React.Dispatch<React.SetStateAction<any[]>>;
+  activeStore: TiendaDto | null;
+  setActiveStore: (store: TiendaDto) => void;
+  storeConfig: StoreVisualConfig | null;
+  setTiendas: React.Dispatch<React.SetStateAction<TiendaDto[]>>;
 }
 
 export function SettingsTab({
@@ -36,7 +38,6 @@ export function SettingsTab({
   activeStore,
   setActiveStore,
   storeConfig,
-  setStoreConfig,
   setTiendas
 }: SettingsTabProps) {
   const t = useTranslations("Settings");
@@ -76,9 +77,11 @@ export function SettingsTab({
   });
   const [isSavingStoreInfo, setIsSavingStoreInfo] = useState(false);
 
-  useEffect(() => {
+  const [previousStore, setPreviousStore] = useState<TiendaDto | null>(null);
+  if (previousStore !== activeStore) {
+    setPreviousStore(activeStore);
     if (activeStore) {
-      let config = null;
+      let config: StoreVisualConfig | null = null;
       if (activeStore.configuracionVisual) {
         try {
           config = typeof activeStore.configuracionVisual === "string"
@@ -90,10 +93,10 @@ export function SettingsTab({
       }
       let headerSec = null;
       if (config?.pages) {
-        const homePage = config.pages.find((p: any) => p.id === "home") || config.pages[0];
-        headerSec = homePage?.sections?.find((s: any) => s.type === "header");
+        const homePage = config.pages.find((p) => p.id === "home") || config.pages[0];
+        headerSec = homePage?.sections?.find((s) => s.type === "header");
       } else {
-        headerSec = config?.sections?.find((s: any) => s.type === "header");
+        headerSec = config?.sections?.find((s) => s.type === "header");
       }
 
       setStoreForm({
@@ -102,11 +105,16 @@ export function SettingsTab({
         logoUrl: headerSec?.properties?.logoUrl || ""
       });
     }
-  }, [activeStore]);
+  }
+
+  const [previousToken, setPreviousToken] = useState(token);
+  if (previousToken !== token) {
+    setPreviousToken(token);
+    setLoadingSettings(true);
+  }
 
   useEffect(() => {
     if (token) {
-      setLoadingSettings(true);
       getIntegraciones(token)
         .then((res) => {
           setSettingsForm({
@@ -159,7 +167,7 @@ export function SettingsTab({
       });
 
       // Actualizar la configuración visual con el logo y nombre
-      let currentConfig: any = null;
+      let currentConfig: StoreVisualConfig | null = null;
       if (updated.configuracionVisual) {
         try {
           currentConfig = typeof updated.configuracionVisual === "string"
@@ -171,14 +179,14 @@ export function SettingsTab({
       }
 
       if (!currentConfig || (!currentConfig.sections && !currentConfig.pages)) {
-        currentConfig = storeConfig || { sections: [] };
+        currentConfig = structuredClone(storeConfig || { sections: [] });
       }
 
       // Update name and logo in header properties of all pages
       if (currentConfig.pages) {
-        currentConfig.pages = currentConfig.pages.map((p: any) => ({
+        currentConfig.pages = currentConfig.pages.map((p) => ({
           ...p,
-          sections: (p.sections || []).map((sec: any) => {
+          sections: (p.sections || []).map((sec) => {
             if (sec.type === "header") {
               return {
                 ...sec,
@@ -196,7 +204,7 @@ export function SettingsTab({
 
       // Also update root sections if they exist
       if (currentConfig.sections) {
-        currentConfig.sections = currentConfig.sections.map((sec: any) => {
+        currentConfig.sections = currentConfig.sections.map((sec) => {
           if (sec.type === "header") {
             return {
               ...sec,
@@ -215,10 +223,9 @@ export function SettingsTab({
 
       // Actualizar estados locales
       setActiveStore(updatedWithVisual);
-      setStoreConfig(currentConfig);
       setTiendas((prev) => prev.map((t) => t.id === updatedWithVisual.id ? updatedWithVisual : t));
       toast.success(t("toast_store_saved"));
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : t("toast_store_save_error"));
     } finally {
@@ -234,7 +241,7 @@ export function SettingsTab({
     try {
       await guardarIntegraciones(token, settingsForm);
       toast.success(t("toast_integrations_saved"));
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : t("toast_integrations_save_error"));
     } finally {

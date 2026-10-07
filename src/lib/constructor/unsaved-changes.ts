@@ -5,8 +5,8 @@ export function serializeDesign(config: Record<string, unknown>): string {
   return JSON.stringify(config.pages ? design : { ...design, sections });
 }
 
-export function changedPageIds(
-  pages: Array<{ id: string }>,
+export function changedPageIds<T extends { id: string }>(
+  pages: T[],
   savedDesign: string | null,
 ): Set<string> {
   if (savedDesign === null) return new Set();

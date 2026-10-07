@@ -1,5 +1,8 @@
 "use client";
 
+import type { StoreConfig } from "@/types/store-builder";
+import type { TiendaDto as BuilderTiendaDto } from "@/lib/api/admin";
+
 import React from "react";
 import {
   Plus,
@@ -28,8 +31,8 @@ import { PortalModal } from "@/components/ui/PortalModal";
 
 interface ConstructorLeftPanelProps {
   dirtyPageIds: Set<string>;
-  storeConfig: any;
-  setStoreConfig: React.Dispatch<React.SetStateAction<any>>;
+  storeConfig: StoreConfig | null;
+  setStoreConfig: React.Dispatch<React.SetStateAction<StoreConfig | null>>;
   activePageId: string;
   setActivePageId: (id: string) => void;
   selectedSectionId: string;
@@ -49,7 +52,7 @@ interface ConstructorLeftPanelProps {
   setNewSectionName: (name: string) => void;
   newSectionType: string;
   setNewSectionType: (type: string) => void;
-  activeStore: any;
+  activeStore: BuilderTiendaDto | null;
   token?: string | null;
   handleCreatePage: (e: React.FormEvent) => void;
   handleAddSection: (e: React.FormEvent) => void;
@@ -119,6 +122,7 @@ export function ConstructorLeftPanel({
   setShowRightPanel,
   onOpenAgent
 }: ConstructorLeftPanelProps) {
+  if (!storeConfig) return null;
   const theme = storeConfig.theme || {
     backgroundColor: "#F8FAFC",
     accentColor: "#1AB38C",
@@ -126,14 +130,14 @@ export function ConstructorLeftPanel({
     useGradient: false
   };
 
-  const handleThemeChange = (field: string, val: any) => {
-    setStoreConfig((prev: any) => ({
+  const handleThemeChange = (field: string, val: unknown) => {
+    setStoreConfig((prev) => prev ? ({
       ...prev,
       theme: {
         ...theme,
         [field]: val
       }
-    }));
+    }) : prev);
   };
 
   const gradientPresets = [
@@ -192,7 +196,7 @@ export function ConstructorLeftPanel({
     reader.readAsText(file);
   };
 
-  const currentPage = storeConfig.pages.find((p: any) => p.id === activePageId) || storeConfig.pages[0];
+  const currentPage = storeConfig.pages.find((p) => p.id === activePageId) || storeConfig.pages[0];
 
   return (
     <>
@@ -400,7 +404,7 @@ export function ConstructorLeftPanel({
             </span>
             
             <div className="flex flex-col gap-1.5">
-              {currentPage.sections.map((section: any) => {
+              {currentPage.sections.map((section) => {
                 const isSelected = selectedSectionId === section.id;
                 const isShared = ["header", "footer"].includes(section.id);
                 return (
@@ -449,7 +453,7 @@ export function ConstructorLeftPanel({
                 Páginas del Sitio
               </span>
               <div className="flex flex-col gap-1">
-                {storeConfig.pages.map((p: any) => {
+                {storeConfig.pages.map((p) => {
                   const isActive = p.id === activePageId;
                   return (
                     <div

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 
 const quantityPresets = [1, 2, 4, 8, 16, 32];
@@ -23,10 +23,12 @@ export function QuantitySelector({
   const [inputValue, setInputValue] = useState(String(value));
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const [previousValue, setPreviousValue] = useState(value);
+  if (previousValue !== value) {
+    setPreviousValue(value);
     setInputValue(String(value));
     setError(null);
-  }, [value]);
+  }
 
   const validateQuantity = (rawValue: string) => {
     if (rawValue.trim() === "") {

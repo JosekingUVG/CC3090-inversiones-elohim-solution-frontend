@@ -26,11 +26,13 @@ export function ClientAuthModal({ isOpen, onClose, initialTab = "login" }: Clien
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
 
   // Sync tab with initialTab when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setActiveTab(initialTab);
-    }
-  }, [isOpen, initialTab]);
+  const [previousOpen, setPreviousOpen] = useState(isOpen);
+  const [previousTab, setPreviousTab] = useState(initialTab);
+  if (previousOpen !== isOpen || previousTab !== initialTab) {
+    setPreviousOpen(isOpen);
+    setPreviousTab(initialTab);
+    if (isOpen) setActiveTab(initialTab);
+  }
 
   // Handle ESC key to close modal
   useEffect(() => {

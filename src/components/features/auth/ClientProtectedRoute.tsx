@@ -1,5 +1,7 @@
 "use client";
 
+import { useHydrated } from "@/hooks/useHydrated";
+
 import { useEffect, useState } from "react";
 import { useClientAuthStore } from "@/stores/useClientAuthStore";
 import { login, register } from "@/lib/api/auth";
@@ -11,7 +13,7 @@ type ClientProtectedRouteProps = {
 };
 
 export function ClientProtectedRoute({ children }: ClientProtectedRouteProps) {
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useHydrated();
   const isAuthenticated = useClientAuthStore((state) => state.isAuthenticated);
   const isSessionExpired = useClientAuthStore((state) => state.isSessionExpired());
   const logout = useClientAuthStore((state) => state.logout);
@@ -39,9 +41,6 @@ export function ClientProtectedRoute({ children }: ClientProtectedRouteProps) {
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
 
   // Hydration check
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   useEffect(() => {
     if (isHydrated && isAuthenticated && isSessionExpired) {

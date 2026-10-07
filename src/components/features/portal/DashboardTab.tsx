@@ -19,7 +19,7 @@ interface DashboardTabProps {
   productos: PlatformProductoDto[];
   usuarios: PlatformUsuarioDto[];
   reservaciones: ReservacionDto[];
-  usuario: any;
+  usuario: import("@/stores/useAuthStore").TUsuario;
   esAdmin: boolean;
   esStaff: boolean;
 }

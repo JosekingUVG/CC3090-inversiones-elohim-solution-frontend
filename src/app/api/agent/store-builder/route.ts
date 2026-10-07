@@ -91,8 +91,8 @@ export async function POST(req: Request) {
           rawText = text;
           break; // Success!
         }
-      } catch (err: any) {
-        lastError = err;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
       }
     }
 
@@ -113,11 +113,11 @@ export async function POST(req: Request) {
       products: parsedResult.productsToCreate || [],
       rawText: parsedResult.rawText
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error en /api/agent/store-builder:", error);
     return NextResponse.json(
       {
-        error: error.message || "Ocurrió un error inesperado al procesar la solicitud del agente."
+        error: (error instanceof Error ? error.message : "") || "Ocurrió un error inesperado al procesar la solicitud del agente."
       },
       { status: 500 }
     );

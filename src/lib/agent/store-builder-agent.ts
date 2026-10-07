@@ -1,3 +1,5 @@
+import type { StoreConfig, StoreVisualConfig, SectionProperties } from "@/types/store-builder";
+
 export interface AgentPlan {
   concept: string;
   palette: {
@@ -22,12 +24,12 @@ export interface AgentProduct {
 export interface AgentExecutionResult {
   planRaw: string;
   explanation: string;
-  storeConfig: any | null;
+  storeConfig: StoreConfig | null;
   productsToCreate: AgentProduct[];
   rawText: string;
 }
 
-export function buildStoreBuilderSystemPrompt(currentConfig: any, activeStore: any): string {
+export function buildStoreBuilderSystemPrompt(currentConfig: StoreVisualConfig, activeStore: { nombre?: string; slug?: string } | null): string {
   const storeName = activeStore?.nombre || "Mi Tienda";
   const storeSlug = activeStore?.slug || "tienda";
   const sanitizedConfig = JSON.stringify(currentConfig, null, 2);
@@ -139,10 +141,10 @@ REGLAS DE ORO CRÍTICAS:
 5. No inventes tipos de secciones no soportados.`;
 }
 
-export function parseAgentResponse(rawText: string, currentConfig: any): AgentExecutionResult {
+export function parseAgentResponse(rawText: string, currentConfig: StoreVisualConfig): AgentExecutionResult {
   let planRaw = "";
   let explanation = "";
-  let storeConfig: any = null;
+  let storeConfig: StoreConfig | null = null;
   let productsToCreate: AgentProduct[] = [];
 
   // Extract <plan>
@@ -186,10 +188,10 @@ export function parseAgentResponse(rawText: string, currentConfig: any): AgentEx
       const parsed = JSON.parse(jsonStr);
 
       if (Array.isArray(parsed)) {
-        productsToCreate = parsed.map((item: any, idx: number) => {
+        productsToCreate = parsed.map((item: Record<string, unknown>, idx: number) => {
           const precioDetalle = Number(item.precioDetalle || item.price || item.precio || 50);
           const precioMayoreo = Number(item.precioMayoreo || item.wholesalePrice || (precioDetalle * 0.8) || 40);
-          const sku = item.sku || `SKU-${Date.now().toString().slice(-4)}-${idx + 1}`;
+          const sku = String(item.sku || `SKU-${Date.now().toString().slice(-4)}-${idx + 1}`);
 
           return {
             nombre: String(item.nombre || item.name || `Producto ${idx + 1}`),
@@ -198,7 +200,7 @@ export function parseAgentResponse(rawText: string, currentConfig: any): AgentEx
             sku,
             descripcion: String(item.descripcion || item.description || ""),
             stockActual: Number(item.stockActual || item.stock || 25),
-            imagenUrl: item.imagenUrl || item.image || item.imageUrl || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80",
+            imagenUrl: String(item.imagenUrl || item.image || item.imageUrl || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80"),
             publicado: item.publicado !== false
           };
         });
@@ -231,8 +233,9 @@ export function parseAgentResponse(rawText: string, currentConfig: any): AgentEx
   };
 }
 
-function sanitizeStoreConfig(newConfig: any, fallbackConfig: any): any {
-  const result: any = {
+function sanitizeStoreConfig(newConfig: StoreVisualConfig, fallbackConfig: StoreVisualConfig): StoreConfig {
+  const result: StoreConfig = {
+    pages: [],
     ...fallbackConfig,
     ...newConfig
   };
@@ -264,24 +267,24 @@ function sanitizeStoreConfig(newConfig: any, fallbackConfig: any): any {
   }
 
   // Ensure each page has sections with valid IDs and merged properties
-  result.pages = result.pages.map((page: any) => {
+  result.pages = result.pages.map((page) => {
     const sections = Array.isArray(page.sections) ? page.sections : [];
-    const fallbackPage = fallbackConfig.pages?.find((fp: any) => fp.id === (page.id || "home"));
+    const fallbackPage = fallbackConfig.pages?.find((fp) => fp.id === (page.id || "home"));
 
     return {
       id: page.id || "home",
       name: page.name || "Inicio",
       isHome: Boolean(page.isHome),
-      sections: sections.map((sec: any, idx: number) => {
+      sections: sections.map((sec, idx: number) => {
         const { id, name, type, properties, ...otherProps } = sec;
         const defaultId = ["header", "footer", "announcement", "hero", "products", "richtext", "cart"].includes(type)
           ? type
           : `sec-${idx}-${Date.now()}`;
         const secId = id || defaultId;
 
-        const existingSection = fallbackPage?.sections?.find((fs: any) => fs.id === secId || fs.type === type);
+        const existingSection = fallbackPage?.sections?.find((fs) => fs.id === secId || fs.type === type);
 
-        const mergedProperties: any = {
+        const mergedProperties: SectionProperties = {
           ...(existingSection?.properties || {}),
           ...otherProps,
           ...(properties || {})

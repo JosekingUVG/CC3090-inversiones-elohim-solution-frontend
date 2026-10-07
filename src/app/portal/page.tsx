@@ -1,9 +1,11 @@
 "use client";
 
+import type { StoreVisualConfig } from "@/types/store-builder";
+
 import { useAuthStore } from "@/stores/useAuthStore";
 import { cn } from "@/lib/utils";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState, useRef } from "react";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
@@ -70,6 +72,10 @@ const getDocsUrl = () => {
 };
 
 export default function PortalPage() {
+  return <Suspense fallback={null}><PortalContent /></Suspense>;
+}
+
+function PortalContent() {
   const usuario = useAuthStore((state) => state.usuario);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const token = useAuthStore((state) => state.token);
@@ -83,7 +89,10 @@ export default function PortalPage() {
   const tCommon = useTranslations("Common");
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<string>("tablero");
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab") || "tablero";
+  const validTab = ["tablero", "sucursales", "clientes", "usuarios", "productos", "reservaciones", "pagos", "reportes", "settings", "kanban"].includes(requestedTab);
+  const activeTab = validTab ? requestedTab : "tablero";
   const [menuAbierto, setMenuAbierto] = useState(false);
 
   const tabTitles: Record<string, string> = {
@@ -109,7 +118,6 @@ export default function PortalPage() {
   const [isCreatingStore, setIsCreatingStore] = useState(false);
 
   // Shared store details
-  const [storeConfig, setStoreConfig] = useState<any>(null);
   const [hasCloudinary, setHasCloudinary] = useState(false);
 
   // Master lists passed to components
@@ -153,16 +161,8 @@ export default function PortalPage() {
     }
   }, [isAuthenticated, router]);
 
-  // Restricción de acceso para la pestaña Kanban
-  useEffect(() => {
-    if (usuario && activeTab === "kanban" && !esStaff) {
-      toast.error("No tienes permisos para acceder a esta sección.");
-      handleTabChange("tablero");
-    }
-  }, [usuario, activeTab, esStaff]);
-
-  // Load visual config mapping
-  useEffect(() => {
+  // Derive the design from the currently selected store.
+  const storeConfig = useMemo<StoreVisualConfig | null>(() => {
     if (activeStore) {
       let config = null;
       if (activeStore.configuracionVisual) {
@@ -239,25 +239,17 @@ export default function PortalPage() {
           ]
         };
       }
-      setStoreConfig(config);
+      return config;
     }
+    return null;
   }, [activeStore]);
 
-  // Read tab parameter from URL on mount
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const tab = params.get("tab");
-      if (tab) {
-        if (!["tablero", "sucursales", "clientes", "usuarios", "productos", "reservaciones", "pagos", "reportes", "settings", "kanban"].includes(tab)) {
-          toast.error("Pestaña no válida en la URL, redirigiendo al tablero");
-          router.replace("/portal?tab=tablero");
-          return;
-        }
-        setActiveTab(tab);
-      }
+    if (!validTab) {
+      toast.error("Pestaña no válida en la URL, redirigiendo al tablero");
+      router.replace("/portal?tab=tablero");
     }
-  }, []);
+  }, [validTab, router]);
 
   // Update dynamic document title
   useEffect(() => {
@@ -301,33 +293,6 @@ export default function PortalPage() {
         .catch((err) => console.error("Error al verificar Cloudinary", err));
     }
   }, [token]);
-
-  // Main reload effect for tabs
-  useEffect(() => {
-    if (!token || !activeStore) return;
-
-    if (activeTab === "tablero") {
-      Promise.all([
-        getSucursales(token).catch(() => [] as SucursalDto[]),
-        (esAdmin ? getPlatformUsuarios(token) : Promise.resolve([] as PlatformUsuarioDto[])).catch(() => [] as PlatformUsuarioDto[]),
-        getPlatformProductos(token).catch(() => [] as PlatformProductoDto[]),
-        (esStaff ? getPlatformReservaciones(token) : Promise.resolve([] as ReservacionDto[])).catch(() => [] as ReservacionDto[])
-      ] as const).then(([sucList, usrList, prodList, resList]) => {
-        setSucursales(sucList as SucursalDto[]);
-        setUsuarios(usrList as PlatformUsuarioDto[]);
-        setProductos(prodList as PlatformProductoDto[]);
-        setReservaciones(resList as ReservacionDto[]);
-      });
-    } else if (activeTab === "sucursales") {
-      refreshSucursales();
-    } else if (activeTab === "clientes" || activeTab === "usuarios") {
-      refreshUsuarios();
-    } else if (activeTab === "productos") {
-      refreshProductos();
-    } else if (activeTab === "reservaciones" || activeTab === "pagos") {
-      refreshReservaciones();
-    }
-  }, [token, activeStore, activeTab]);
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -399,7 +364,6 @@ export default function PortalPage() {
 
   // Tab changer helper updating search param
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("tab", tab);
@@ -407,9 +371,44 @@ export default function PortalPage() {
     }
   };
 
+  // Restricción de acceso para la pestaña Kanban
+  useEffect(() => {
+    if (usuario && activeTab === "kanban" && !esStaff) {
+      toast.error("No tienes permisos para acceder a esta sección.");
+      handleTabChange("tablero");
+    }
+  }, [usuario, activeTab, esStaff]);
+
+  // Main reload effect for tabs
+  useEffect(() => {
+    if (!token || !activeStore) return;
+
+    if (activeTab === "tablero") {
+      Promise.all([
+        getSucursales(token).catch(() => [] as SucursalDto[]),
+        (esAdmin ? getPlatformUsuarios(token) : Promise.resolve([] as PlatformUsuarioDto[])).catch(() => [] as PlatformUsuarioDto[]),
+        getPlatformProductos(token).catch(() => [] as PlatformProductoDto[]),
+        (esStaff ? getPlatformReservaciones(token) : Promise.resolve([] as ReservacionDto[])).catch(() => [] as ReservacionDto[])
+      ] as const).then(([sucList, usrList, prodList, resList]) => {
+        setSucursales(sucList as SucursalDto[]);
+        setUsuarios(usrList as PlatformUsuarioDto[]);
+        setProductos(prodList as PlatformProductoDto[]);
+        setReservaciones(resList as ReservacionDto[]);
+      });
+    } else if (activeTab === "sucursales") {
+      refreshSucursales();
+    } else if (activeTab === "clientes" || activeTab === "usuarios") {
+      refreshUsuarios();
+    } else if (activeTab === "productos") {
+      refreshProductos();
+    } else if (activeTab === "reservaciones" || activeTab === "pagos") {
+      refreshReservaciones();
+    }
+  }, [token, activeStore, activeTab]);
+
   const navigateWithTransition = (href: string) => {
-    if (typeof document !== "undefined" && (document as any).startViewTransition) {
-      (document as any).startViewTransition(() => {
+    if (typeof document !== "undefined" && document.startViewTransition) {
+      document.startViewTransition(() => {
         router.push(href);
       });
     } else {
@@ -822,7 +821,7 @@ export default function PortalPage() {
                   : "border border-slate-200 bg-white shadow-slate-300/50 ring-1 ring-black/5 text-slate-900 portal-card-base"
                 }`}>
                 {searchResults.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-4">{tCommon("no_results")} "{searchQuery}"</p>
+                  <p className="text-xs text-slate-500 text-center py-4">{tCommon("no_results")} &quot;{searchQuery}&quot;</p>
                 ) : (
                   <div className="space-y-4">
                     {Object.entries(groupedSearchResults).map(([cat, items]) => (
@@ -1088,7 +1087,6 @@ export default function PortalPage() {
               activeStore={activeStore}
               setActiveStore={setActiveStore}
               storeConfig={storeConfig}
-              setStoreConfig={setStoreConfig}
               setTiendas={setTiendas}
             />
           )}

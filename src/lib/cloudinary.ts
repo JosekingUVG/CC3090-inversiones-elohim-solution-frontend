@@ -17,11 +17,11 @@ export async function uploadToCloudinary(
   const signatureUrl = `/api/v1/media/cloudinary-signature?publicId=${publicId}&timestamp=${timestamp}`;
   const sigResponse = await fetch(signatureUrl, {
     method: "GET",
-    headers: buildAuthHeaders(token) as any,
+    headers: buildAuthHeaders(token),
   });
 
   if (!sigResponse.ok) {
-    const errorData = (await sigResponse.json().catch(() => null)) as any;
+    const errorData = (await sigResponse.json().catch(() => null)) as { error?: string } | null;
     throw new Error(
       errorData?.error || "Error al obtener la firma de Cloudinary"
     );
@@ -45,7 +45,7 @@ export async function uploadToCloudinary(
   });
 
   if (!uploadResponse.ok) {
-    const errData = (await uploadResponse.json().catch(() => null)) as any;
+    const errData = (await uploadResponse.json().catch(() => null)) as { error?: { message?: string } } | null;
     console.error("Cloudinary error:", errData);
     throw new Error(
       errData?.error?.message || "Error al subir imagen a Cloudinary"

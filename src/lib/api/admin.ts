@@ -570,7 +570,7 @@ export type ConfiguracionHistorialDto = {
   timestamp: string;
   usuarioId: string;
   dispositivo: string;
-  config: Record<string, unknown>;
+  config: import("@/types/store-builder").StoreConfig;
 };
 
 export type HistorialConfiguracionResponse = {

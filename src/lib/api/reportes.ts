@@ -172,7 +172,7 @@ export async function obtenerReporteMetodosPago(
 }
 
 export type TSqlExecutionResult = {
-  rows: Array<Record<string, any>>;
+  rows: Array<Record<string, unknown>>;
 };
 
 export async function ejecutarRawReporte(

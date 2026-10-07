@@ -53,7 +53,7 @@ export function ProductosTab({
   // Edits
   const [selectedProducto, setSelectedProducto] = useState<PlatformProductoDto | null>(null);
   const [parsedProducts, setParsedProducts] = useState<CrearPlatformProductoBulkInput[]>([]);
-  const [rawExcelRows, setRawExcelRows] = useState<any[]>([]);
+  const [rawExcelRows, setRawExcelRows] = useState<Record<string, unknown>[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   
   // Column mapping
@@ -235,7 +235,7 @@ export function ProductosTab({
     toast.success(t("toast_template_downloaded", { format: format.toUpperCase() }));
   };
 
-  const parseRowsWithMapping = (rows: any[], mapping: Record<string, string>): CrearPlatformProductoBulkInput[] => {
+  const parseRowsWithMapping = (rows: Record<string, unknown>[], mapping: Record<string, string>): CrearPlatformProductoBulkInput[] => {
     return rows.map((row, index) => {
       const getValue = (fieldKey: string) => {
         const colName = mapping[fieldKey];
@@ -250,22 +250,22 @@ export function ProductosTab({
       }
 
       const rawPrecioDetalle = getValue("precioDetalle") ?? row.PrecioDetalle ?? row.precioDetalle ?? row.Precio ?? row.precio ?? row.Price ?? row.price;
-      const precioDetalle = parseFloat(rawPrecioDetalle);
+      const precioDetalle = parseFloat(String(rawPrecioDetalle));
       if (isNaN(precioDetalle) || precioDetalle < 0) {
         throw new Error(t("err_invalid_price", { row: index + 2, name: nombre }));
       }
 
       const rawPrecioMayoreo = getValue("precioMayoreo") ?? row.PrecioMayoreo ?? row.precioMayoreo ?? row.Mayoreo ?? row.mayoreo;
-      let precioMayoreo = parseFloat(rawPrecioMayoreo);
+      let precioMayoreo = parseFloat(String(rawPrecioMayoreo));
       if (isNaN(precioMayoreo) || precioMayoreo < 0) {
         precioMayoreo = precioDetalle;
       }
 
       const rawStockActual = getValue("stockActual") ?? row.StockActual ?? row.stockActual ?? row.Stock ?? row.stock;
-      const stockActual = parseInt(rawStockActual || "0", 10);
+      const stockActual = parseInt(String(rawStockActual || "0"), 10);
 
       const rawStockMinimo = getValue("stockMinimo") ?? row.StockMinimo ?? row.stockMinimo;
-      const stockMinimo = parseInt(rawStockMinimo || "0", 10);
+      const stockMinimo = parseInt(String(rawStockMinimo || "0"), 10);
 
       const rawSku = getValue("sku") ?? row.Sku ?? row.sku ?? row.SKU ?? row.Codigo ?? row.codigo;
       const sku = rawSku ? String(rawSku).trim() : null;
@@ -283,8 +283,7 @@ export function ProductosTab({
         const match = categorias.find(
           (c) =>
             c.id === strCat ||
-            (c.nombreCategoria && c.nombreCategoria.toLowerCase() === strCat.toLowerCase()) ||
-            ((c as any).nombre && (c as any).nombre.toLowerCase() === strCat.toLowerCase())
+            (c.nombreCategoria && c.nombreCategoria.toLowerCase() === strCat.toLowerCase())
         );
         categoriaId = match ? match.id : strCat;
       }
@@ -323,7 +322,7 @@ export function ProductosTab({
         const workbook = XLSX.read(data, { type: "binary" });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json<any>(worksheet);
+        const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
 
         if (json.length === 0) {
           toast.error(t("toast_empty_file"));
@@ -352,8 +351,8 @@ export function ProductosTab({
         const productsToCreate = parseRowsWithMapping(json, guessedMapping);
         setParsedProducts(productsToCreate);
         toast.success(t("toast_file_loaded", { count: productsToCreate.length }));
-      } catch (err: any) {
-        toast.error(err.message || t("toast_file_process_error"));
+      } catch (err) {
+        toast.error((err instanceof Error ? err.message : "") || t("toast_file_process_error"));
       }
     };
     reader.readAsBinaryString(file);
@@ -371,8 +370,8 @@ export function ProductosTab({
       setParsedProducts([]);
       setRawExcelRows([]);
       onRefresh();
-    } catch (err: any) {
-      toast.error(err.message || t("toast_bulk_error"));
+    } catch (err) {
+      toast.error((err instanceof Error ? err.message : "") || t("toast_bulk_error"));
     } finally {
       setIsImporting(false);
     }
@@ -1067,8 +1066,8 @@ export function ProductosTab({
                     setParsedProducts(mappedProducts);
                     toast.success(t("toast_mapping_applied", { count: mappedProducts.length }));
                     setIsColumnMappingModalOpen(false);
-                  } catch (err: any) {
-                    toast.error(err.message || t("toast_mapping_error"));
+                  } catch (err) {
+                    toast.error((err instanceof Error ? err.message : "") || t("toast_mapping_error"));
                   }
                 }}
                 className="flex-1 h-10 rounded-lg bg-[#22D3A6] hover:bg-[#1ebda1] text-slate-955 text-sm font-bold transition-all cursor-pointer border-none"

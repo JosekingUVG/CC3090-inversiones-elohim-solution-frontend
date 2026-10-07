@@ -95,7 +95,7 @@ export function StoreProfileView({
   }, [effectiveTenantId]);
 
   // Parse visual configuration and theme from store
-  const visualConfig = useMemo(() => {
+  const visualConfig = useMemo<import("@/types/store-builder").StoreVisualConfig | null>(() => {
     if (!storeData?.configuracionVisual) return null;
     try {
       return typeof storeData.configuracionVisual === "string"
@@ -105,7 +105,7 @@ export function StoreProfileView({
       console.error("Error parsing visual config in StoreProfileView", e);
       return null;
     }
-  }, [storeData?.configuracionVisual]);
+  }, [storeData]);
 
   const theme = visualConfig?.theme || {};
   const accentColor = theme.accentColor || "#1AB38C";
@@ -113,8 +113,8 @@ export function StoreProfileView({
   const backgroundImage = theme.useGradient ? (theme.backgroundGradient || "none") : "none";
   const isDark = isDarkBg(theme.backgroundColor || "#FFFFFF");
 
-  const headerSection = visualConfig?.sections?.find((s: any) => s.type === "header") || 
-                        visualConfig?.pages?.[0]?.sections?.find((s: any) => s.type === "header");
+  const headerSection = visualConfig?.sections?.find((s) => s.type === "header") ||
+                        visualConfig?.pages?.[0]?.sections?.find((s) => s.type === "header");
   const headerProps = headerSection?.properties || {};
   const storeLogo = headerProps.logoUrl || "";
 
@@ -226,11 +226,10 @@ export function StoreProfileView({
       : "min-h-screen px-4 py-8 sm:px-6 lg:px-8"
   );
 
-  const shellStyle: React.CSSProperties = {
+  const shellStyle: React.CSSProperties & { "--accent-color": string } = {
     backgroundColor: backgroundColor,
     backgroundImage: backgroundImage !== "none" ? backgroundImage : undefined,
     color: isDark ? "#F8FAFC" : "#0F172A",
-    // @ts-ignore
     "--accent-color": accentColor,
   };
 
