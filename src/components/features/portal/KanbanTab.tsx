@@ -39,6 +39,7 @@ interface KanbanTabProps {
 }
 
 type ColumnId = "pendiente_pago" | "pagado_procesando" | "despachado";
+type PeriodFilter = "all" | "today" | "week" | "month";
 
 interface Column {
   id: ColumnId;
@@ -89,6 +90,7 @@ export function KanbanTab({
   // Search & Filtering States
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSucursal, setSelectedSucursal] = useState("all");
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodFilter>("all");
 
   // Order code suggestions 
   const SUGGESTIONS_LIMIT = 8;
@@ -397,7 +399,18 @@ export function KanbanTab({
     }
   };
 
-  // Filter reservations based on search query and sucursal
+  // Start of the selected period in local time (weeks start on Monday)
+  const getPeriodStart = (period: PeriodFilter): Date | null => {
+    if (period === "all") return null;
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    if (period === "week") start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    if (period === "month") start.setDate(1);
+    return start;
+  };
+  const periodStart = getPeriodStart(selectedPeriod);
+
+  // Filter reservations based on search query, sucursal and period
   const filteredReservations = reservaciones.filter((res) => {
     const user = usuarios.find((u) => u.id === res.usuarioId);
     const searchMatch =
@@ -408,7 +421,9 @@ export function KanbanTab({
 
     const sucursalMatch = selectedSucursal === "all" || res.sucursalId === selectedSucursal;
 
-    return searchMatch && sucursalMatch;
+    const periodMatch = !periodStart || new Date(res.fechaReserva) >= periodStart;
+
+    return searchMatch && sucursalMatch && periodMatch;
   });
 
   // Matching codes while the user types
@@ -569,6 +584,20 @@ export function KanbanTab({
                 {suc.nombre}
               </option>
             ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Calendar size={14} className="text-slate-500" />
+          <select
+            value={selectedPeriod}
+            onChange={(e) => setSelectedPeriod(e.target.value as PeriodFilter)}
+            className="h-10 px-3 rounded-lg border border-slate-850 bg-slate-900/40 text-xs text-slate-350 outline-none focus:border-[#22D3A6]/45 cursor-pointer"
+          >
+            <option value="all">{t("period_all")}</option>
+            <option value="today">{t("period_today")}</option>
+            <option value="week">{t("period_week")}</option>
+            <option value="month">{t("period_month")}</option>
           </select>
         </div>
       </div>
