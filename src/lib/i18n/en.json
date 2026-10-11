@@ -107,7 +107,18 @@
     "status_suspended": "Suspended",
     "action_suspend": "Suspend",
     "action_activate": "Activate",
-    "action_change_role": "Change Role"
+    "action_change_role": "Change Role",
+    "no_results": "No customers match the filters.",
+    "filter_status": "Status",
+    "filter_status_all": "All",
+    "filter_status_active": "Active",
+    "filter_status_inactive": "Inactive",
+    "filter_clear": "Clear filters",
+    "pagination_summary": "Showing {from}-{to} of {total}",
+    "pagination_page_size": "Rows per page",
+    "pagination_previous": "Previous",
+    "pagination_next": "Next",
+    "pagination_page_of": "Page {page} of {pages}"
   },
   "Dashboard": {
     "title": "Dashboard",

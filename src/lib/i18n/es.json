@@ -107,7 +107,18 @@
     "status_suspended": "Suspendido",
     "action_suspend": "Suspender",
     "action_activate": "Activar",
-    "action_change_role": "Cambiar Rol"
+    "action_change_role": "Cambiar Rol",
+    "no_results": "Ningún cliente coincide con los filtros.",
+    "filter_status": "Estado",
+    "filter_status_all": "Todos",
+    "filter_status_active": "Activos",
+    "filter_status_inactive": "No activos",
+    "filter_clear": "Limpiar filtros",
+    "pagination_summary": "Mostrando {from}-{to} de {total}",
+    "pagination_page_size": "Filas por página",
+    "pagination_previous": "Anterior",
+    "pagination_next": "Siguiente",
+    "pagination_page_of": "Página {page} de {pages}"
   },
   "Dashboard": {
     "title": "Dashboard",
