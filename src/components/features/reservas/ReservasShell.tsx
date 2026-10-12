@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useHistorialCompras } from "@/hooks/useHistorialCompras";
 import { CompraReservacionCard } from "./CompraReservacionCard";
 import { EstadoVacio, ErrorMessage } from "@/components/ui";
@@ -33,17 +34,50 @@ export function ReservasShell() {
     );
   }
 
-  const ordenadas = [...reservaciones].sort((a, b) => {
-    const ta = new Date(a.fechaLimiteRetiro).getTime();
-    const tb = new Date(b.fechaLimiteRetiro).getTime();
-    return tb - ta;
-  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 5;
+
+  const ordenadas = useMemo(() => {
+    return [...reservaciones].sort((a, b) => {
+      const ta = new Date(a.fechaLimiteRetiro).getTime();
+      const tb = new Date(b.fechaLimiteRetiro).getTime();
+      return tb - ta;
+    });
+  }, [reservaciones]);
+
+  const totalPages = Math.max(1, Math.ceil(ordenadas.length / pageSize));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginated = ordenadas.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <div className="space-y-4!">
-      {ordenadas.map((r) => (
+      {paginated.map((r) => (
         <CompraReservacionCard key={r.idReservacion} reservacion={r} />
       ))}
+
+      {ordenadas.length > pageSize && (
+        <div className="flex items-center justify-between pt-4 border-t border-slate-200 text-sm text-slate-600">
+          <span>Página {safePage} de {totalPages}</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCurrentPage(safePage - 1)}
+              disabled={safePage <= 1}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-xs font-semibold text-slate-700"
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentPage(safePage + 1)}
+              disabled={safePage >= totalPages}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-xs font-semibold text-slate-700"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

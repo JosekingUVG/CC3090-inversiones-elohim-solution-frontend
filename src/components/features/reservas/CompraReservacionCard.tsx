@@ -3,8 +3,9 @@
 import Link from "next/link";
 import type { TReservacionListado } from "@/types";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, ChevronRight, Wallet } from "lucide-react";
+import { Calendar, ChevronRight, Download, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { generateAndDownloadReceipt } from "@/lib/utils/pdfReceipt";
 
 type CompraReservacionCardProps = {
   reservacion: TReservacionListado;
@@ -49,13 +50,41 @@ export function CompraReservacionCard({ reservacion }: CompraReservacionCardProp
             </span>
           </div>
         </div>
-        <Link
-          href={`/carrito/confirmado/${reservacion.idReservacion}`}
-          className="inline-flex! shrink-0! items-center! justify-center! gap-1! rounded-lg! border! border-slate-200! bg-white! px-4! py-2.5! text-sm! font-semibold! text-blue-700! transition-colors! hover:bg-blue-50!"
-        >
-          Ver detalle
-          <ChevronRight className="h-4! w-4!" />
-        </Link>
+        <div className="flex! items-center! gap-2!">
+          <button
+            type="button"
+            onClick={() => {
+              generateAndDownloadReceipt({
+                storeName: "Elohim Shop",
+                orderId: reservacion.codigoReservacion,
+                date: new Date().toLocaleDateString("es-GT"),
+                branchName: "Sucursal",
+                paymentMethod: reservacion.pagado ? "tarjeta" : "contra_entrega",
+                items: [
+                  {
+                    nombre: `Reservación ${reservacion.codigoReservacion}`,
+                    cantidad: 1,
+                    precioUnitario: reservacion.totalReservacion,
+                    subtotal: reservacion.totalReservacion,
+                  },
+                ],
+                totalAmount: reservacion.totalReservacion,
+              });
+            }}
+            className="inline-flex! shrink-0! items-center! justify-center! gap-1! rounded-lg! border! border-slate-200! bg-white! px-3! py-2.5! text-sm! font-semibold! text-slate-700! transition-colors! hover:bg-slate-50!"
+            title="Descargar Recibo en PDF"
+          >
+            <Download className="h-4! w-4! text-slate-600!" />
+            Recibo
+          </button>
+          <Link
+            href={`/carrito/confirmado/${reservacion.idReservacion}`}
+            className="inline-flex! shrink-0! items-center! justify-center! gap-1! rounded-lg! border! border-slate-200! bg-white! px-4! py-2.5! text-sm! font-semibold! text-blue-700! transition-colors! hover:bg-blue-50!"
+          >
+            Ver detalle
+            <ChevronRight className="h-4! w-4!" />
+          </Link>
+        </div>
       </div>
     </Card>
   );
