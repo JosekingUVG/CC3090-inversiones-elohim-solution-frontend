@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, Users, Search } from "lucide-react";
+import { Loader2, Users, Search, X } from "lucide-react";
 import type { PlatformUsuarioDto } from "@/lib/api/admin";
 import { TablePagination } from "@/components/ui";
 
@@ -27,6 +27,7 @@ export function ClientesTab({
 }: ClientesTabProps) {
   const t = useTranslations("Clientes");
   const [searchQuery, setSearchQuery] = useState("");
+  const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -36,13 +37,15 @@ export function ClientesTab({
 
   const filteredClientUsuarios = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return clientUsuarios;
     return clientUsuarios.filter((u) => {
+      if (estadoFiltro === "active" && !u.estado) return false;
+      if (estadoFiltro === "inactive" && u.estado) return false;
+      if (!q) return true;
       const nameMatch = u.name.toLowerCase().includes(q);
       const emailMatch = u.email.toLowerCase().includes(q);
       return nameMatch || emailMatch;
     });
-  }, [clientUsuarios, searchQuery]);
+  }, [clientUsuarios, searchQuery, estadoFiltro]);
 
   const totalPages = Math.max(1, Math.ceil(filteredClientUsuarios.length / pageSize));
   const safePage = Math.min(Math.max(1, currentPage), totalPages);
