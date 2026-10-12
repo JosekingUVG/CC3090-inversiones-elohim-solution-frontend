@@ -15,6 +15,8 @@ import {
 } from "recharts";
 import type { PlatformProductoDto, PlatformUsuarioDto, ReservacionDto } from "@/lib/api/admin";
 
+const AXIS_LABEL_COLOR = "#94a3b8";
+
 interface DashboardTabProps {
   productos: PlatformProductoDto[];
   usuarios: PlatformUsuarioDto[];
@@ -244,10 +246,44 @@ export function DashboardTab({
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("chart_sales_by_hour")}</h3>
           <div className="h-64 w-full text-xs">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartDataVentasHora} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+              <LineChart data={chartDataVentasHora} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
                 <CartesianGrid stroke="#0e1827" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" stroke="#475569" fontSize={9} tickLine={false} axisLine={false} dy={10} />
-                <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} dx={-10} />
+                <XAxis
+                  dataKey="name"
+                  stroke="#475569"
+                  fontSize={9}
+                  tickLine={false}
+                  axisLine={false}
+                  dy={10}
+                  height={50}
+                  label={{
+                    value: t("chart_axis_time"),
+                    position: "insideBottom",
+                    offset: 0,
+                    fill: AXIS_LABEL_COLOR,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    style: { textAnchor: "middle" },
+                  }}
+                />
+                <YAxis
+                  stroke="#475569"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  dx={-10}
+                  width={55}
+                  label={{
+                    value: t("chart_axis_sales_count"),
+                    angle: -90,
+                    position: "insideLeft",
+                    offset: 5,
+                    fill: AXIS_LABEL_COLOR,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    style: { textAnchor: "middle" },
+                  }}
+                />
                 <Tooltip
                   cursor={{ stroke: "rgba(14, 24, 39, 0.4)", strokeWidth: 1 }}
                   content={({ active, payload, label }) => {
@@ -286,7 +322,7 @@ export function DashboardTab({
           </h3>
           <div className="h-64 w-full text-xs">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartDataTop5} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+              <BarChart data={chartDataTop5} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
                 <CartesianGrid stroke="#0e1827" strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="name"
@@ -296,9 +332,36 @@ export function DashboardTab({
                   axisLine={false}
                   dy={10}
                   interval={0}
+                  height={50}
                   tickFormatter={(val) => (val.length > 12 ? `${val.substring(0, 10)}...` : val)}
+                  label={{
+                    value: t("chart_axis_product"),
+                    position: "insideBottom",
+                    offset: 0,
+                    fill: AXIS_LABEL_COLOR,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    style: { textAnchor: "middle" },
+                  }}
                 />
-                <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} dx={-10} />
+                <YAxis
+                  stroke="#475569"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  dx={-10}
+                  width={55}
+                  label={{
+                    value: t("chart_axis_qty_sold"),
+                    angle: -90,
+                    position: "insideLeft",
+                    offset: 5,
+                    fill: AXIS_LABEL_COLOR,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    style: { textAnchor: "middle" },
+                  }}
+                />
                 <Tooltip
                   cursor={{ fill: "rgba(14, 24, 39, 0.4)" }}
                   content={({ active, payload, label }) => {

@@ -30,6 +30,8 @@ import {
 } from "@/lib/api/reportes";
 import type { TiendaDto } from "@/lib/api/admin";
 
+const AXIS_LABEL_COLOR = "#94a3b8";
+
 interface ReportesTabProps {
   token: string;
   activeStore: TiendaDto | null;
@@ -233,24 +235,25 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-slate-900 pb-5">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-xl font-black text-white">{t("title")}</h2>
           <p className="text-xs text-slate-400">
             {t("subtitle")}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        {/* En pantallas anchas los controles no se parten en dos líneas (textos largos en español); cede el título */}
+        <div className="flex flex-wrap items-center gap-3 xl:flex-nowrap xl:shrink-0">
           {reportSubTab !== "personalizado" && (
             <>
               {/* Mode selection */}
-              <div className="inline-flex rounded-xl bg-slate-955 p-1 border border-slate-900">
+              <div className="inline-flex shrink-0 rounded-xl bg-slate-955 p-1 border border-slate-900">
                 {(["todos", "ventas", "reservaciones"] as const).map((m) => (
                   <button
                     key={m}
                     type="button"
                     onClick={() => setReportFiltro((prev) => ({ ...prev, modo: m }))}
-                    className={`rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all border-none bg-transparent cursor-pointer ${
+                    className={`whitespace-nowrap rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all border-none bg-transparent cursor-pointer ${
                       reportFiltro.modo === m
                         ? "bg-[#22D3A6] text-slate-950 shadow-sm"
                         : "text-slate-400 hover:text-white"
@@ -262,7 +265,7 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
               </div>
 
               {/* Date picker */}
-              <div className="flex items-center gap-2 rounded-xl bg-slate-955 p-1 border border-slate-900 text-xs">
+              <div className="flex shrink-0 items-center gap-2 rounded-xl bg-slate-955 p-1 border border-slate-900 text-xs">
                 <input
                   type="date"
                   value={reportFiltro.desde}
@@ -282,7 +285,7 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
 
           {/* Export Buttons */}
           {tieneDatosReporte() && (
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
               <button
                 onClick={() => exportarReporte("csv")}
                 className="h-8 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer border border-slate-700 shrink-0"
@@ -399,7 +402,7 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
                           name: p.producto,
                           cantidad: p.cantidadVendida,
                         }))}
-                        margin={{ top: 10, right: 10, left: -25, bottom: 20 }}
+                        margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
                       >
                         <CartesianGrid stroke="#0e1827" strokeDasharray="3 3" vertical={false} />
                         <XAxis
@@ -410,9 +413,34 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
                           axisLine={false}
                           angle={-25}
                           textAnchor="end"
-                          height={50}
+                          height={70}
+                          label={{
+                            value: t("chart_axis_product"),
+                            position: "insideBottom",
+                            offset: 0,
+                            fill: AXIS_LABEL_COLOR,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            style: { textAnchor: "middle" },
+                          }}
                         />
-                        <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
+                        <YAxis
+                          stroke="#475569"
+                          fontSize={10}
+                          tickLine={false}
+                          axisLine={false}
+                          width={55}
+                          label={{
+                            value: t("chart_axis_qty_sold"),
+                            angle: -90,
+                            position: "insideLeft",
+                            offset: 5,
+                            fill: AXIS_LABEL_COLOR,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            style: { textAnchor: "middle" },
+                          }}
+                        />
                         <Tooltip
                           cursor={{ fill: "rgba(34, 211, 166, 0.05)" }}
                           content={({ active, payload, label }) => {
@@ -449,7 +477,7 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
                           name: p.producto,
                           ingresos: p.ingresos,
                         }))}
-                        margin={{ top: 10, right: 10, left: -10, bottom: 20 }}
+                        margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
                       >
                         <CartesianGrid stroke="#0e1827" strokeDasharray="3 3" vertical={false} />
                         <XAxis
@@ -460,7 +488,16 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
                           axisLine={false}
                           angle={-25}
                           textAnchor="end"
-                          height={50}
+                          height={70}
+                          label={{
+                            value: t("chart_axis_product"),
+                            position: "insideBottom",
+                            offset: 0,
+                            fill: AXIS_LABEL_COLOR,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            style: { textAnchor: "middle" },
+                          }}
                         />
                         <YAxis
                           stroke="#475569"
@@ -468,6 +505,17 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
                           tickLine={false}
                           axisLine={false}
                           tickFormatter={(v) => `Q${v}`}
+                          width={65}
+                          label={{
+                            value: t("chart_axis_revenue"),
+                            angle: -90,
+                            position: "insideLeft",
+                            offset: 5,
+                            fill: AXIS_LABEL_COLOR,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            style: { textAnchor: "middle" },
+                          }}
                         />
                         <Tooltip
                           cursor={{ fill: "rgba(34, 211, 166, 0.05)" }}
@@ -608,10 +656,26 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
                       <BarChart
                         data={reportEmpleados.empleados.map((e) => ({ name: e.empleado, ventas: e.ventas }))}
                         layout="vertical"
-                        margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
+                        margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
                       >
                         <CartesianGrid stroke="#0e1827" strokeDasharray="3 3" horizontal={false} />
-                        <XAxis type="number" stroke="#475569" fontSize={9} tickLine={false} axisLine={false} />
+                        <XAxis
+                          type="number"
+                          stroke="#475569"
+                          fontSize={9}
+                          tickLine={false}
+                          axisLine={false}
+                          height={50}
+                          label={{
+                            value: t("chart_axis_sales_count"),
+                            position: "insideBottom",
+                            offset: 0,
+                            fill: AXIS_LABEL_COLOR,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            style: { textAnchor: "middle" },
+                          }}
+                        />
                         <YAxis
                           type="category"
                           dataKey="name"
@@ -619,7 +683,17 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
                           fontSize={10}
                           tickLine={false}
                           axisLine={false}
-                          width={80}
+                          width={110}
+                          label={{
+                            value: t("chart_axis_sales_attribution"),
+                            angle: -90,
+                            position: "insideLeft",
+                            offset: 0,
+                            fill: AXIS_LABEL_COLOR,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            style: { textAnchor: "middle" },
+                          }}
                         />
                         <Tooltip
                           cursor={{ fill: "rgba(38, 189, 248, 0.05)" }}
@@ -655,7 +729,7 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
                       <BarChart
                         data={reportEmpleados.empleados.map((e) => ({ name: e.empleado, monto: e.monto }))}
                         layout="vertical"
-                        margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
+                        margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
                       >
                         <CartesianGrid stroke="#0e1827" strokeDasharray="3 3" horizontal={false} />
                         <XAxis
@@ -665,6 +739,16 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
                           tickLine={false}
                           axisLine={false}
                           tickFormatter={(v) => `Q${v}`}
+                          height={50}
+                          label={{
+                            value: t("chart_axis_revenue"),
+                            position: "insideBottom",
+                            offset: 0,
+                            fill: AXIS_LABEL_COLOR,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            style: { textAnchor: "middle" },
+                          }}
                         />
                         <YAxis
                           type="category"
@@ -673,7 +757,17 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
                           fontSize={10}
                           tickLine={false}
                           axisLine={false}
-                          width={80}
+                          width={110}
+                          label={{
+                            value: t("chart_axis_revenue_attribution"),
+                            angle: -90,
+                            position: "insideLeft",
+                            offset: 0,
+                            fill: AXIS_LABEL_COLOR,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            style: { textAnchor: "middle" },
+                          }}
                         />
                         <Tooltip
                           cursor={{ fill: "rgba(34, 211, 166, 0.05)" }}
@@ -838,15 +932,42 @@ export function ReportesTab({ token, activeStore }: ReportesTabProps) {
                   </h3>
                   <div className="h-64 w-full text-xs">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={reportMetodosPago.distribucion} margin={{ top: 10, right: 10, left: -10, bottom: 20 }}>
+                      <BarChart data={reportMetodosPago.distribucion} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
                         <CartesianGrid stroke="#0e1827" strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="metodo" stroke="#475569" fontSize={9} tickLine={false} axisLine={false} />
+                        <XAxis
+                          dataKey="metodo"
+                          stroke="#475569"
+                          fontSize={9}
+                          tickLine={false}
+                          axisLine={false}
+                          height={50}
+                          label={{
+                            value: t("chart_axis_payment_method"),
+                            position: "insideBottom",
+                            offset: 0,
+                            fill: AXIS_LABEL_COLOR,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            style: { textAnchor: "middle" },
+                          }}
+                        />
                         <YAxis
                           stroke="#475569"
                           fontSize={10}
                           tickLine={false}
                           axisLine={false}
                           tickFormatter={(v) => `Q${v}`}
+                          width={65}
+                          label={{
+                            value: t("chart_axis_revenue"),
+                            angle: -90,
+                            position: "insideLeft",
+                            offset: 5,
+                            fill: AXIS_LABEL_COLOR,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            style: { textAnchor: "middle" },
+                          }}
                         />
                         <Tooltip
                           cursor={{ fill: "rgba(34, 211, 166, 0.05)" }}

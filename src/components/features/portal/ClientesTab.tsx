@@ -6,6 +6,10 @@ import { Loader2, Users, Search } from "lucide-react";
 import type { PlatformUsuarioDto } from "@/lib/api/admin";
 import { TablePagination } from "@/components/ui";
 
+const PAGE_SIZE_OPTIONS = [10, 25, 30];
+
+type EstadoFiltro = "all" | "active" | "inactive";
+
 interface ClientesTabProps {
   usuarios: PlatformUsuarioDto[];
   loadingUsuarios: boolean;
@@ -68,6 +72,42 @@ export function ClientesTab({
           </div>
         )}
       </div>
+
+      {!loadingUsuarios && clientUsuarios.length > 0 && (
+        <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-900 bg-slate-950/20 p-4 text-xs">
+          <label className="space-y-1">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              {t("filter_status")}
+            </span>
+            <select
+              value={estadoFiltro}
+              onChange={(e) => {
+                setEstadoFiltro(e.target.value as EstadoFiltro);
+                setCurrentPage(1);
+              }}
+              className="h-8 rounded-lg border border-slate-800 bg-slate-900/60 px-2 text-xs text-slate-100 outline-none focus:border-[#22D3A6]/40 cursor-pointer"
+            >
+              <option value="all">{t("filter_status_all")}</option>
+              <option value="active">{t("filter_status_active")}</option>
+              <option value="inactive">{t("filter_status_inactive")}</option>
+            </select>
+          </label>
+
+          {estadoFiltro !== "all" && (
+            <button
+              type="button"
+              onClick={() => {
+                setEstadoFiltro("all");
+                setCurrentPage(1);
+              }}
+              className="h-8 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition-all flex items-center gap-1 cursor-pointer border-none"
+            >
+              <X size={12} />
+              <span>{t("filter_clear")}</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {loadingUsuarios ? (
         <div className="h-48 flex items-center justify-center">

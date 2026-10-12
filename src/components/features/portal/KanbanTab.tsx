@@ -39,6 +39,7 @@ interface KanbanTabProps {
 }
 
 type ColumnId = "pendiente_pago" | "pagado_procesando" | "despachado";
+type PeriodFilter = "all" | "today" | "week" | "month";
 
 interface Column {
   id: ColumnId;
@@ -89,6 +90,34 @@ export function KanbanTab({
   // Search & Filtering States
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSucursal, setSelectedSucursal] = useState("all");
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodFilter>("all");
+
+  // Order code suggestions 
+  const SUGGESTIONS_LIMIT = 8;
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [randomCodes, setRandomCodes] = useState<string[]>([]);
+  const searchBoxRef = useRef<HTMLDivElement | null>(null);
+
+  const openSuggestions = () => {
+    const codes = reservaciones.map((r) => r.id.substring(0, 8).toUpperCase());
+    for (let i = codes.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [codes[i], codes[j]] = [codes[j], codes[i]];
+    }
+    setRandomCodes(codes.slice(0, SUGGESTIONS_LIMIT));
+    setSuggestionsOpen(true);
+  };
+
+  useEffect(() => {
+    if (!suggestionsOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
+        setSuggestionsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [suggestionsOpen]);
 
   // Real-time Polling States
   const [isPollingActive, setIsPollingActive] = useState(true);
@@ -370,7 +399,18 @@ export function KanbanTab({
     }
   };
 
-  // Filter reservations based on search query and sucursal
+  // Start of the selected period in local time (weeks start on Monday)
+  const getPeriodStart = (period: PeriodFilter): Date | null => {
+    if (period === "all") return null;
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    if (period === "week") start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    if (period === "month") start.setDate(1);
+    return start;
+  };
+  const periodStart = getPeriodStart(selectedPeriod);
+
+  // Filter reservations based on search query, sucursal and period
   const filteredReservations = reservaciones.filter((res) => {
     const user = usuarios.find((u) => u.id === res.usuarioId);
     const searchMatch =
@@ -381,8 +421,19 @@ export function KanbanTab({
 
     const sucursalMatch = selectedSucursal === "all" || res.sucursalId === selectedSucursal;
 
-    return searchMatch && sucursalMatch;
+    const periodMatch = !periodStart || new Date(res.fechaReserva) >= periodStart;
+
+    return searchMatch && sucursalMatch && periodMatch;
   });
+
+  // Matching codes while the user types
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+  const suggestedCodes = trimmedQuery
+    ? reservaciones
+        .map((r) => r.id.substring(0, 8).toUpperCase())
+        .filter((code) => code.toLowerCase().includes(trimmedQuery))
+        .slice(0, SUGGESTIONS_LIMIT)
+    : randomCodes;
 
   // Calculate Column aggregates
   const getColumnData = (columnId: ColumnId) => {
@@ -483,15 +534,41 @@ export function KanbanTab({
 
       {/* Filter and search bar */}
       <div className="flex flex-col md:flex-row gap-3 bg-slate-950/20 p-4 rounded-xl border border-slate-900">
-        <div className="flex-1 relative">
+        <div className="flex-1 relative" ref={searchBoxRef}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
           <input
             type="text"
             placeholder={t("search_placeholder")}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setSuggestionsOpen(true);
+            }}
+            onFocus={openSuggestions}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setSuggestionsOpen(false);
+            }}
+            autoComplete="off"
             className="w-full pl-9 pr-4 h-10 rounded-lg border border-slate-850 bg-slate-900/30 text-xs placeholder:text-slate-500 text-slate-100 outline-none transition-all focus:border-[#22D3A6]/45 focus:ring-1 focus:ring-[#22D3A6]/10"
           />
+          {suggestionsOpen && suggestedCodes.length > 0 && (
+            <ul className="absolute left-0 right-0 top-full mt-1 z-30 max-h-64 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950 shadow-xl py-1">
+              {suggestedCodes.map((code) => (
+                <li key={code}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery(code);
+                      setSuggestionsOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs font-mono text-slate-200 hover:bg-slate-900 hover:text-[#22D3A6] cursor-pointer bg-transparent border-0"
+                  >
+                    #{code}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -507,6 +584,20 @@ export function KanbanTab({
                 {suc.nombre}
               </option>
             ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Calendar size={14} className="text-slate-500" />
+          <select
+            value={selectedPeriod}
+            onChange={(e) => setSelectedPeriod(e.target.value as PeriodFilter)}
+            className="h-10 px-3 rounded-lg border border-slate-850 bg-slate-900/40 text-xs text-slate-350 outline-none focus:border-[#22D3A6]/45 cursor-pointer"
+          >
+            <option value="all">{t("period_all")}</option>
+            <option value="today">{t("period_today")}</option>
+            <option value="week">{t("period_week")}</option>
+            <option value="month">{t("period_month")}</option>
           </select>
         </div>
       </div>
