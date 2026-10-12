@@ -4,9 +4,10 @@ import type { StoreConfig } from "@/types/store-builder";
 import type { TiendaDto as BuilderTiendaDto } from "@/lib/api/admin";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Upload, Plus, Trash2, ArrowUp, ArrowDown, ArrowLeft, X, Sparkles } from "lucide-react";
+import { Upload, Plus, Trash2, ArrowUp, ArrowDown, ArrowLeft, X, Sparkles, Paintbrush } from "lucide-react";
 import { toast } from "sonner";
 import { uploadToCloudinary } from "@/lib/cloudinary";
+import { safeHexColor } from "@/lib/utils";
 import { ConstructorAgentPanel } from "./ConstructorAgentPanel";
 
 interface ConstructorRightPanelProps {
@@ -54,8 +55,9 @@ export function ConstructorRightPanel({
   handleDeleteBlock,
   handleBlockFieldChange
 }: ConstructorRightPanelProps) {
-  const currentPage = storeConfig?.pages.find((p) => p.id === activePageId) || storeConfig?.pages[0];
-  const currentSection = currentPage?.sections.find((s) => s.id === selectedSectionId);
+  const pages = storeConfig?.pages || [];
+  const currentPage = pages.find((p) => p.id === activePageId) || pages[0] || { id: "home", name: "Inicio", sections: [] };
+  const currentSection = (currentPage.sections || []).find((s) => s.id === selectedSectionId);
 
   const isAgentMode = panelMode === "agent";
   const isOpen = showRightPanel && (isAgentMode || Boolean(currentSection));
@@ -242,7 +244,7 @@ export function ConstructorRightPanel({
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
-                    value={props.backgroundColor || "#1AB38C"}
+                    value={safeHexColor(props.backgroundColor, "#1AB38C")}
                     onChange={(e) => handlePropertyChange("backgroundColor", e.target.value)}
                     className="w-8 h-8 rounded-lg cursor-pointer border-none bg-transparent outline-none p-0 shrink-0"
                   />
@@ -254,7 +256,7 @@ export function ConstructorRightPanel({
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
-                    value={props.textColor || "#FFFFFF"}
+                    value={safeHexColor(props.textColor, "#FFFFFF")}
                     onChange={(e) => handlePropertyChange("textColor", e.target.value)}
                     className="w-8 h-8 rounded-lg cursor-pointer border-none bg-transparent outline-none p-0 shrink-0"
                   />
@@ -262,6 +264,39 @@ export function ConstructorRightPanel({
                 </div>
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const isGrad = Boolean(storeConfig?.theme?.useGradient);
+                const pageBg = isGrad ? "transparent" : (storeConfig?.theme?.backgroundColor || "#FFFFFF");
+                handlePropertyChange("backgroundColor", pageBg);
+                toast.success(
+                  isGrad
+                    ? "Fondo del anuncio configurado para mostrar el degradado general"
+                    : `Fondo del anuncio cambiado al fondo general (${pageBg})`
+                );
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-[#22D3A6]/50 text-slate-300 hover:text-white transition-all cursor-pointer group shadow-sm"
+              title="Aplica el color o degradado general de la página al banner de anuncio"
+            >
+              <div className="flex items-center gap-2">
+                <Paintbrush size={14} className="text-[#22D3A6] group-hover:scale-110 transition-transform" />
+                <span className="text-[11px] font-bold">Adoptar fondo de la página</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span
+                  className="w-3.5 h-3.5 rounded-full border border-slate-700 shadow-inner inline-block shrink-0"
+                  style={{
+                    backgroundColor: storeConfig?.theme?.useGradient ? undefined : (storeConfig?.theme?.backgroundColor || "#FFFFFF"),
+                    backgroundImage: storeConfig?.theme?.useGradient ? (storeConfig?.theme?.backgroundGradient || "none") : "none"
+                  }}
+                />
+                <span className="text-[10px] font-mono text-slate-400">
+                  {storeConfig?.theme?.useGradient ? "Degradado" : (storeConfig?.theme?.backgroundColor || "#FFFFFF")}
+                </span>
+              </div>
+            </button>
 
             <div className="flex flex-col gap-1.5">
               <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Grosor de Fuente</label>
@@ -634,14 +669,17 @@ export function ConstructorRightPanel({
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                   <span>Opacidad de Filtro Oscuro</span>
-                  <span className="text-[#22D3A6] font-mono">{props.overlayOpacity ?? 60}%</span>
+                  <span className="text-[#22D3A6] font-mono">{Number.isFinite(Number(props.overlayOpacity)) ? Number(props.overlayOpacity) : 60}%</span>
                 </div>
                 <input
                   type="range"
                   min="0"
                   max="90"
-                  value={props.overlayOpacity ?? 60}
-                  onChange={(e) => handlePropertyChange("overlayOpacity", parseInt(e.target.value))}
+                  value={Number.isFinite(Number(props.overlayOpacity)) ? Number(props.overlayOpacity) : 60}
+                  onChange={(e) => {
+                    const parsed = parseInt(e.target.value, 10);
+                    handlePropertyChange("overlayOpacity", Number.isNaN(parsed) ? 60 : parsed);
+                  }}
                   className="w-full accent-[#22D3A6] h-1.5 rounded-lg bg-slate-900 outline-none cursor-pointer border-none"
                 />
               </div>
@@ -956,6 +994,183 @@ export function ConstructorRightPanel({
           </div>
         )}
 
+        {/* SURVEY / GOOGLE FORMS MODULE PROPERTIES */}
+        {currentSection.type === "survey" && (
+          <div className="flex flex-col gap-4 text-left">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Título de la Encuesta</label>
+              <input
+                type="text"
+                value={props.surveyTitle || ""}
+                onChange={(e) => handlePropertyChange("surveyTitle", e.target.value)}
+                placeholder="Ej. Encuesta de Satisfacción"
+                className="h-10 px-4 rounded-xl border border-slate-800 bg-slate-955 text-slate-300 text-xs outline-none focus:border-[#22D3A6]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Descripción de la Encuesta</label>
+              <textarea
+                value={props.surveyDescription || ""}
+                onChange={(e) => handlePropertyChange("surveyDescription", e.target.value)}
+                placeholder="Instrucciones para los clientes..."
+                className="w-full h-16 p-2 rounded-xl border border-slate-800 bg-slate-955 text-slate-300 text-xs outline-none focus:border-[#22D3A6] transition-all resize-none"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Texto del Botón de Envío</label>
+              <input
+                type="text"
+                value={props.surveySubmitText || ""}
+                onChange={(e) => handlePropertyChange("surveySubmitText", e.target.value)}
+                placeholder="Enviar respuestas"
+                className="h-10 px-4 rounded-xl border border-slate-800 bg-slate-955 text-slate-300 text-xs outline-none focus:border-[#22D3A6]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Mensaje de Agradecimiento</label>
+              <textarea
+                value={props.surveySuccessMessage || ""}
+                onChange={(e) => handlePropertyChange("surveySuccessMessage", e.target.value)}
+                placeholder="¡Muchas gracias por tus respuestas!"
+                className="w-full h-14 p-2 rounded-xl border border-slate-800 bg-slate-955 text-slate-300 text-xs outline-none focus:border-[#22D3A6] transition-all resize-none"
+              />
+            </div>
+
+            <div className="border-t border-slate-900 pt-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Preguntas ({((props.surveyQuestions as import("@/types/store-builder").SurveyQuestion[]) || []).length})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentQuestions = (props.surveyQuestions as import("@/types/store-builder").SurveyQuestion[]) || [];
+                    const newQ: import("@/types/store-builder").SurveyQuestion = {
+                      id: `q-${Date.now()}`,
+                      title: "Nueva pregunta",
+                      type: "choice",
+                      options: ["Opción 1", "Opción 2"],
+                      required: false,
+                    };
+                    handlePropertyChange("surveyQuestions", [...currentQuestions, newQ]);
+                  }}
+                  className="h-7 px-2.5 rounded-lg border border-[#22D3A6]/30 bg-[#22D3A6]/10 hover:bg-[#22D3A6]/20 text-[#22D3A6] text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all"
+                >
+                  <Plus size={12} />
+                  <span>Añadir Pregunta</span>
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {((props.surveyQuestions as import("@/types/store-builder").SurveyQuestion[]) || []).map((q, idx) => (
+                  <div
+                    key={q.id || idx}
+                    className="p-3 rounded-xl border border-slate-850 bg-slate-950/60 space-y-2.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold text-slate-500">#{idx + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentQuestions = (props.surveyQuestions as import("@/types/store-builder").SurveyQuestion[]) || [];
+                          handlePropertyChange(
+                            "surveyQuestions",
+                            currentQuestions.filter((_, i) => i !== idx)
+                          );
+                        }}
+                        className="text-slate-500 hover:text-red-400 p-1 rounded transition-colors cursor-pointer bg-transparent border-none"
+                        title="Eliminar pregunta"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase">Texto de la pregunta</label>
+                      <input
+                        type="text"
+                        value={q.title}
+                        onChange={(e) => {
+                          const currentQuestions = [...((props.surveyQuestions as import("@/types/store-builder").SurveyQuestion[]) || [])];
+                          currentQuestions[idx] = { ...currentQuestions[idx], title: e.target.value };
+                          handlePropertyChange("surveyQuestions", currentQuestions);
+                        }}
+                        className="h-8 px-3 rounded-lg border border-slate-800 bg-slate-900 text-slate-200 text-xs outline-none focus:border-[#22D3A6]"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase">Tipo</label>
+                        <select
+                          value={q.type}
+                          onChange={(e) => {
+                            const currentQuestions = [...((props.surveyQuestions as import("@/types/store-builder").SurveyQuestion[]) || [])];
+                            const newType = e.target.value as "text" | "choice" | "rating" | "checkbox";
+                            currentQuestions[idx] = {
+                              ...currentQuestions[idx],
+                              type: newType,
+                              options: newType === "choice" || newType === "checkbox"
+                                ? currentQuestions[idx].options || ["Opción 1", "Opción 2"]
+                                : undefined,
+                            };
+                            handlePropertyChange("surveyQuestions", currentQuestions);
+                          }}
+                          className="h-8 px-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-200 text-[11px] outline-none focus:border-[#22D3A6]"
+                        >
+                          <option value="choice">Opción múltiple</option>
+                          <option value="checkbox">Casillas de verificación</option>
+                          <option value="rating">Calificación (1 a 5)</option>
+                          <option value="text">Respuesta de texto</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-4">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={!!q.required}
+                            onChange={(e) => {
+                              const currentQuestions = [...((props.surveyQuestions as import("@/types/store-builder").SurveyQuestion[]) || [])];
+                              currentQuestions[idx] = { ...currentQuestions[idx], required: e.target.checked };
+                              handlePropertyChange("surveyQuestions", currentQuestions);
+                            }}
+                            className="rounded accent-[#22D3A6]"
+                          />
+                          <span className="text-[10px]">Obligatoria</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {(q.type === "choice" || q.type === "checkbox") && (
+                      <div className="flex flex-col gap-1 pt-1">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase">
+                          Opciones (separadas por coma)
+                        </label>
+                        <input
+                          type="text"
+                          value={(q.options || []).join(", ")}
+                          onChange={(e) => {
+                            const opts = e.target.value.split(",").map((s) => s.trim()).filter(Boolean);
+                            const currentQuestions = [...((props.surveyQuestions as import("@/types/store-builder").SurveyQuestion[]) || [])];
+                            currentQuestions[idx] = { ...currentQuestions[idx], options: opts };
+                            handlePropertyChange("surveyQuestions", currentQuestions);
+                          }}
+                          placeholder="Opción 1, Opción 2, Opción 3"
+                          className="h-8 px-3 rounded-lg border border-slate-800 bg-slate-900 text-slate-200 text-xs outline-none focus:border-[#22D3A6]"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* FOOTER PROPERTIES */}
         {currentSection.type === "footer" && (
           <div className="flex flex-col gap-4">
@@ -980,7 +1195,7 @@ export function ConstructorRightPanel({
               <div className="flex items-center gap-2">
                 <input
                   type="color"
-                  value={props.backgroundColor || "#FFFFFF"}
+                  value={safeHexColor(props.backgroundColor, "#FFFFFF")}
                   onChange={(e) => handlePropertyChange("backgroundColor", e.target.value)}
                   className="w-8 h-8 rounded-lg cursor-pointer border-none bg-transparent outline-none p-0 shrink-0"
                 />
@@ -992,7 +1207,7 @@ export function ConstructorRightPanel({
               <div className="flex items-center gap-2">
                 <input
                   type="color"
-                  value={props.textColor || "#0F172A"}
+                  value={safeHexColor(props.textColor, "#0F172A")}
                   onChange={(e) => handlePropertyChange("textColor", e.target.value)}
                   className="w-8 h-8 rounded-lg cursor-pointer border-none bg-transparent outline-none p-0 shrink-0"
                 />
@@ -1000,6 +1215,40 @@ export function ConstructorRightPanel({
               </div>
             </div>
           </div>
+
+          {/* Botón para adoptar el color de fondo de la página general */}
+          <button
+            type="button"
+            onClick={() => {
+              const isGrad = Boolean(storeConfig?.theme?.useGradient);
+              const pageBg = isGrad ? "transparent" : (storeConfig?.theme?.backgroundColor || "#FFFFFF");
+              handlePropertyChange("backgroundColor", pageBg);
+              toast.success(
+                isGrad
+                  ? "Fondo de la sección configurado para mostrar el degradado general"
+                  : `Fondo de la sección cambiado al fondo general (${pageBg})`
+              );
+            }}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-[#22D3A6]/50 text-slate-300 hover:text-white transition-all cursor-pointer group shadow-sm"
+            title="Aplica el color o degradado general de la página a esta sección"
+          >
+            <div className="flex items-center gap-2">
+              <Paintbrush size={14} className="text-[#22D3A6] group-hover:scale-110 transition-transform" />
+              <span className="text-[11px] font-bold">Adoptar fondo general de la página</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span
+                className="w-3.5 h-3.5 rounded-full border border-slate-700 shadow-inner inline-block shrink-0"
+                style={{
+                  backgroundColor: storeConfig?.theme?.useGradient ? undefined : (storeConfig?.theme?.backgroundColor || "#FFFFFF"),
+                  backgroundImage: storeConfig?.theme?.useGradient ? (storeConfig?.theme?.backgroundGradient || "none") : "none"
+                }}
+              />
+              <span className="text-[10px] font-mono text-slate-400">
+                {storeConfig?.theme?.useGradient ? "Degradado" : (storeConfig?.theme?.backgroundColor || "#FFFFFF")}
+              </span>
+            </div>
+          </button>
 
           <div className="flex items-center justify-between py-1 border-y border-slate-900/40 my-1">
             <div className="flex flex-col">

@@ -125,7 +125,11 @@ export default function ConstructorPage() {
   }>({ cloudName: "", apiKey: "", hasCredentials: false });
 
   const isHydrated = useHydrated();
-  const previewConfig = selectedHistoryVersion?.config ?? storeConfig;
+  const rawPreview = selectedHistoryVersion?.config ?? storeConfig;
+  const previewConfig = rawPreview ? {
+    ...rawPreview,
+    pages: rawPreview.pages || storeConfig?.pages || []
+  } : null;
 
   const navigateWithTransition = (href: string) => {
     if (hasUnsavedChanges && !window.confirm("Tienes cambios sin guardar. ¿Quieres salir y descartarlos?")) return;
@@ -261,17 +265,16 @@ export default function ConstructorPage() {
         };
       }
 
-      if (!config.theme) {
-        config = {
-          ...config,
-          theme: {
-            backgroundColor: "#F8FAFC",
-            accentColor: "#1AB38C",
-            backgroundGradient: "linear-gradient(135deg, #1e3a8a 0%, #0d9488 100%)",
-            useGradient: false
-          }
-        };
-      }
+      config = {
+        ...config,
+        theme: {
+          backgroundColor: "#F8FAFC",
+          accentColor: "#1AB38C",
+          backgroundGradient: "linear-gradient(135deg, #1e3a8a 0%, #0d9488 100%)",
+          useGradient: false,
+          ...(config.theme || {})
+        }
+      };
 
       setSavedDesign(serializeDesign(config));
       resetHistory(config);
@@ -345,6 +348,7 @@ export default function ConstructorPage() {
       localStorage.setItem("store-builder-device-id", deviceId.current);
     }
     const timer = window.setTimeout(() => {
+      if (!storeConfig.pages || storeConfig.pages.length === 0) return;
       void guardarConfiguracionDraft(token, storeConfig, deviceId.current)
         .then(() => getConfiguracionHistorial(token))
         .then((response) => setPersistedHistory(response.history))
@@ -373,13 +377,15 @@ export default function ConstructorPage() {
     if (!storeConfig) return;
     setStoreConfig((prev) => {
       if (!prev) return prev;
-      const currentPage = prev.pages.find((p) => p.id === activePageId) || prev.pages[0];
-      const section = currentPage.sections.find((s) => s.id === selectedSectionId);
+      const pages = prev.pages || [];
+      const currentPage = pages.find((p) => p.id === activePageId) || pages[0];
+      if (!currentPage) return prev;
+      const section = (currentPage.sections || []).find((s) => s.id === selectedSectionId);
       const isSharedSection = ["header", "footer"].includes(selectedSectionId) || section?.type === "announcement" || selectedSectionId === "announcement";
 
-      const updatedPages = prev.pages.map((page) => {
+      const updatedPages = pages.map((page) => {
         if (isSharedSection || page.id === activePageId) {
-          const updatedSections = page.sections.map((sec) => {
+          const updatedSections = (page.sections || []).map((sec) => {
             if (sec.id === selectedSectionId) {
               return {
                 ...sec,
@@ -596,6 +602,34 @@ export default function ConstructorPage() {
         title: "Carrito de Compras",
         showReservations: true,
         showCardPayments: true
+      };
+    } else if (newSectionType === "survey") {
+      newSection.properties = {
+        surveyTitle: "Encuesta de Satisfacción",
+        surveyDescription: "Nos encantaría conocer tu opinión para mejorar nuestro servicio y catálogo de productos.",
+        surveySubmitText: "Enviar respuestas",
+        surveySuccessMessage: "¡Muchas gracias! Tus respuestas han sido registradas exitosamente.",
+        surveyQuestions: [
+          {
+            id: `q-${Date.now()}-1`,
+            title: "¿Cómo calificarías tu experiencia general en nuestra tienda?",
+            type: "rating",
+            required: true,
+          },
+          {
+            id: `q-${Date.now()}-2`,
+            title: "¿Qué categoría de productos te gustaría ver en nuestro catálogo?",
+            type: "choice",
+            options: ["Novedades y Lanzamientos", "Ofertas especiales", "Accesorios y Repuestos", "Servicio Técnico"],
+            required: false,
+          },
+          {
+            id: `q-${Date.now()}-3`,
+            title: "¿Tienes algún comentario, queja o sugerencia adicional?",
+            type: "text",
+            required: false,
+          },
+        ],
       };
     }
 

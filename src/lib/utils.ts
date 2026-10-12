@@ -27,3 +27,28 @@ export function isDarkBg(bgColor: string): boolean {
   }
   return false;
 }
+
+export function safeHexColor(val?: unknown, fallback = "#FFFFFF"): string {
+  if (typeof val !== "string" || !val) return fallback;
+  const trimmed = val.trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(trimmed)) return trimmed;
+  if (/^#[0-9A-Fa-f]{3}$/.test(trimmed)) {
+    return `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`;
+  }
+  return fallback;
+}
+
+export function safeBackgroundImage(url?: unknown): string | undefined {
+  if (typeof url !== "string") return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  if (
+    trimmed.startsWith("url(") ||
+    trimmed.startsWith("linear-gradient(") ||
+    trimmed.startsWith("radial-gradient(")
+  ) {
+    return trimmed;
+  }
+  const clean = trimmed.replace(/"/g, "%22");
+  return `url("${clean}")`;
+}

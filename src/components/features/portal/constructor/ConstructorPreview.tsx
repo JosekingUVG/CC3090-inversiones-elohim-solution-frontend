@@ -7,6 +7,8 @@ import { STORE_LAYOUT } from "@/components/features/portal/constructor/storeLayo
 
 import React from "react";
 import { Store, ShoppingCart, ShoppingBag, Search, X } from "lucide-react";
+import { StoreSurveySection } from "./StoreSurveySection";
+import { safeBackgroundImage } from "@/lib/utils";
 
 interface ConstructorPreviewProps {
   storeConfig: StoreConfig | null;
@@ -41,7 +43,7 @@ const getSectionStyle = (properties: SectionProperties) => {
   const styles: React.CSSProperties = {};
   if (!properties) return styles;
 
-  const bgColor = properties.backgroundColor || "transparent";
+  const bgColor = properties.backgroundColor;
   const textColor = properties.textColor || undefined;
 
   if (properties.useGlassmorphism) {
@@ -53,7 +55,7 @@ const getSectionStyle = (properties: SectionProperties) => {
       const b = parseInt(hex.substring(4, 6), 16) || 255;
       const alpha = (properties.opacity ?? 30) / 100;
       rgbaBg = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    } else if (bgColor === "transparent") {
+    } else if (bgColor === "transparent" || !bgColor) {
       const alpha = (properties.opacity ?? 30) / 100;
       rgbaBg = `rgba(255, 255, 255, ${alpha})`;
     } else {
@@ -63,20 +65,16 @@ const getSectionStyle = (properties: SectionProperties) => {
     styles.backgroundColor = rgbaBg;
     styles.border = "1px solid rgba(255, 255, 255, 0.2)";
     styles.boxShadow = "0 8px 32px 0 rgba(0, 0, 0, 0.1)";
-  } else {
-    if (bgColor !== "transparent") {
-      if (bgColor.startsWith("#") && properties.opacity !== undefined && properties.opacity !== 100) {
-        const hex = bgColor.replace("#", "");
-        const r = parseInt(hex.substring(0, 2), 16) || 0;
-        const g = parseInt(hex.substring(2, 4), 16) || 0;
-        const b = parseInt(hex.substring(4, 6), 16) || 0;
-        const alpha = properties.opacity / 100;
-        styles.backgroundColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-      } else {
-        styles.backgroundColor = bgColor;
-      }
+  } else if (bgColor && bgColor !== "transparent") {
+    if (bgColor.startsWith("#") && properties.opacity !== undefined && properties.opacity !== 100) {
+      const hex = bgColor.replace("#", "");
+      const r = parseInt(hex.substring(0, 2), 16) || 0;
+      const g = parseInt(hex.substring(2, 4), 16) || 0;
+      const b = parseInt(hex.substring(4, 6), 16) || 0;
+      const alpha = properties.opacity / 100;
+      styles.backgroundColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
     } else {
-      styles.backgroundColor = "transparent";
+      styles.backgroundColor = bgColor;
     }
   }
 
@@ -104,7 +102,8 @@ export function ConstructorPreview({
   setShowRightPanel
 }: ConstructorPreviewProps) {
   if (!storeConfig) return null;
-  const currentPage = storeConfig.pages.find((p) => p.id === activePageId) || storeConfig.pages[0];
+  const pages = storeConfig.pages || [];
+  const currentPage = pages.find((p) => p.id === activePageId) || pages[0] || { id: "home", name: "Inicio", sections: [] };
 
   const handleSelectSection = (id: string) => {
     setSelectedSectionId(id);
@@ -143,7 +142,7 @@ export function ConstructorPreview({
           }}
           className="flex-1 overflow-y-auto text-slate-900 flex flex-col font-sans select-none"
         >
-          {currentPage.sections.map((section) => {
+          {(currentPage.sections || []).map((section) => {
             const isSelected = selectedSectionId === section.id;
             const props = section.properties || {};
             const customStyle = getSectionStyle(props);
@@ -162,11 +161,13 @@ export function ConstructorPreview({
                     fontWeight: props.fontWeight === "Bold" ? "bold" : "normal",
                     ...customStyle
                   }}
-                  className={`text-center text-xs tracking-wider transition-all select-none relative cursor-pointer ${
+                  className={`${STORE_LAYOUT.section} text-center text-xs tracking-wider transition-all select-none relative cursor-pointer ${
                     isSelected ? "outline outline-2 outline-[#22D3A6] outline-offset-[-2px] z-30 animate-pulse" : ""
                   }`}
                 >
-                  <span>{props.bannerText || "Anuncio especial aquí..."}</span>
+                  <div className={STORE_LAYOUT.content}>
+                    <span>{props.bannerText || "Anuncio especial aquí..."}</span>
+                  </div>
                 </div>
               );
             }
@@ -226,14 +227,18 @@ export function ConstructorPreview({
 
             if (section.type === "hero") {
               const theme = storeConfig.theme;
-              const hasImage = !!props.backgroundImage;
+              const hasImage = Boolean(props.backgroundImage && typeof props.backgroundImage === "string" && props.backgroundImage.trim().length > 0);
+              const bgImageUrl = hasImage
+                ? safeBackgroundImage(props.backgroundImage)
+                : undefined;
               const heroStyle: React.CSSProperties = {
                 color: props.textColor || "#FFFFFF",
-                ...(hasImage
+                ...(hasImage && bgImageUrl
                   ? {
-                      backgroundImage: `url(${props.backgroundImage})`,
+                      backgroundImage: bgImageUrl,
                       backgroundSize: "cover",
-                      backgroundPosition: "center"
+                      backgroundPosition: "center",
+                      backgroundRepeat: "no-repeat"
                     }
                   : {}),
                 ...customStyle
@@ -245,6 +250,9 @@ export function ConstructorPreview({
                   heroStyle.backgroundColor = theme?.backgroundColor || "#0F172A";
                 }
               }
+              const safeOpacity = Number.isFinite(Number(props.overlayOpacity))
+                ? Math.min(Math.max(Number(props.overlayOpacity), 0), 100) / 100
+                : 0.6;
               return (
                 <section
                   key={section.id}
@@ -256,7 +264,7 @@ export function ConstructorPreview({
                 >
                   {hasImage && (
                     <div 
-                      style={{ backgroundColor: `rgba(0, 0, 0, ${(props.overlayOpacity ?? 60) / 100})` }} 
+                      style={{ backgroundColor: `rgba(0, 0, 0, ${safeOpacity})` }} 
                       className="absolute inset-0 pointer-events-none" 
                     />
                   )}
@@ -452,7 +460,7 @@ export function ConstructorPreview({
                     paddingBottom: `${props.paddingVertical || 48}px`,
                     ...customStyle
                   }}
-                  className={`cursor-pointer px-6 text-center space-y-4 transition-all select-none relative ${
+                  className={`${STORE_LAYOUT.section} cursor-pointer px-6 text-center space-y-4 transition-all select-none relative ${
                     isSelected ? "outline outline-2 outline-[#22D3A6] outline-offset-[-2px] z-30 animate-pulse" : ""
                   }`}
                 >
@@ -483,7 +491,7 @@ export function ConstructorPreview({
                     color: props.textColor || "#0F172A",
                     ...customStyle
                   }}
-                  className={`cursor-pointer py-10 px-6 transition-all select-none relative ${
+                  className={`${STORE_LAYOUT.section} cursor-pointer py-10 px-6 transition-all select-none relative ${
                     isSelected ? "outline outline-2 outline-[#22D3A6] outline-offset-[-2px] z-30 animate-pulse" : ""
                   }`}
                 >
@@ -561,57 +569,82 @@ export function ConstructorPreview({
                     color: props.textColor || "#0F172A",
                     ...customStyle
                   }}
-                  className={`cursor-pointer py-12 px-6 flex flex-col gap-6 transition-all select-none relative ${
+                  className={`${STORE_LAYOUT.section} cursor-pointer py-12 flex flex-col gap-6 transition-all select-none relative ${
                     isSelected ? "outline outline-2 outline-[#22D3A6] outline-offset-[-2px] z-30 animate-pulse" : ""
                   }`}
                 >
-                  <div 
-                    style={{
-                      backgroundColor: isDark ? "rgba(15, 23, 42, 0.4)" : "#F8FAFC",
-                      borderColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#E2E8F0"
-                    }}
-                    className="max-w-2xl mx-auto w-full border rounded-2xl p-6 space-y-4"
-                  >
-                    <h3 
-                      style={{ 
-                        color: isDark ? "#F8FAFC" : "#1E293B",
-                        borderBottomColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#E2E8F0"
-                      }}
-                      className="text-sm font-black border-b pb-2 flex items-center gap-2 text-left"
-                    >
-                      <ShoppingBag size={18} style={{ color: storeConfig.theme?.accentColor || "#1AB38C" }} />
-                      <span>{props.title || "Carrito de Compras / Checkout"}</span>
-                    </h3>
-                    <div className="space-y-3">
-                      <div 
-                        style={{
-                          backgroundColor: isDark ? "rgba(15, 23, 42, 0.6)" : "#FFFFFF",
-                          borderColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#F1F5F9"
-                        }}
-                        className="flex justify-between items-center p-3 rounded-xl border text-[10px]"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 bg-slate-150 rounded flex items-center justify-center text-slate-450 font-bold">Img</div>
-                          <div className="text-left">
-                            <div style={{ color: isDark ? "#F8FAFC" : "#334155" }} className="font-bold">Producto de Demostración</div>
-                            <div style={{ color: isDark ? "#94A3B8" : "#94A3B8" }}>Q 150.00 x 1</div>
-                          </div>
-                        </div>
-                        <div style={{ color: isDark ? "#F8FAFC" : "#1E293B" }} className="font-bold">Q 150.00</div>
-                      </div>
-                    </div>
+                  <div className={STORE_LAYOUT.content}>
                     <div 
-                      style={{ borderTopColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#E2E8F0" }}
-                      className="border-t pt-3 flex justify-between items-center text-[10px]"
+                      style={{
+                        backgroundColor: isDark ? "rgba(15, 23, 42, 0.4)" : "#F8FAFC",
+                        borderColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#E2E8F0"
+                      }}
+                      className="max-w-2xl mx-auto w-full border rounded-2xl p-6 space-y-4"
                     >
-                      <span style={{ color: isDark ? "#94A3B8" : "#64748B" }} className="font-bold uppercase">Métodos de pago habilitados:</span>
-                      <div className="flex gap-2">
-                        {(props.showReservations ?? true) && <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">Reserva física</span>}
-                        {(props.showCardPayments ?? true) && <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold">Stripe</span>}
+                      <h3 
+                        style={{ 
+                          color: isDark ? "#F8FAFC" : "#1E293B",
+                          borderBottomColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#E2E8F0"
+                        }}
+                        className="text-sm font-black border-b pb-2 flex items-center gap-2 text-left"
+                      >
+                        <ShoppingBag size={18} style={{ color: storeConfig.theme?.accentColor || "#1AB38C" }} />
+                        <span>{props.title || "Carrito de Compras / Checkout"}</span>
+                      </h3>
+                      <div className="space-y-3">
+                        <div 
+                          style={{
+                            backgroundColor: isDark ? "rgba(15, 23, 42, 0.6)" : "#FFFFFF",
+                            borderColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#F1F5F9"
+                          }}
+                          className="flex justify-between items-center p-3 rounded-xl border text-[10px]"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-slate-150 rounded flex items-center justify-center text-slate-450 font-bold">Img</div>
+                            <div className="text-left">
+                              <div style={{ color: isDark ? "#F8FAFC" : "#334155" }} className="font-bold">Producto de Demostración</div>
+                              <div style={{ color: isDark ? "#94A3B8" : "#94A3B8" }}>Q 150.00 x 1</div>
+                            </div>
+                          </div>
+                          <div style={{ color: isDark ? "#F8FAFC" : "#1E293B" }} className="font-bold">Q 150.00</div>
+                        </div>
+                      </div>
+                      <div 
+                        style={{ borderTopColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#E2E8F0" }}
+                        className="border-t pt-3 flex justify-between items-center text-[10px]"
+                      >
+                        <span style={{ color: isDark ? "#94A3B8" : "#64748B" }} className="font-bold uppercase">Métodos de pago habilitados:</span>
+                        <div className="flex gap-2">
+                          {(props.showReservations ?? true) && <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">Reserva física</span>}
+                          {(props.showCardPayments ?? true) && <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold">Stripe</span>}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </section>
+              );
+            }
+
+            if (section.type === "survey") {
+              return (
+                <div
+                  key={section.id}
+                  onClick={() => handleSelectSection(section.id)}
+                  className={`w-full cursor-pointer transition-all select-none relative ${
+                    isSelected ? "outline outline-2 outline-[#22D3A6] outline-offset-[-2px] z-30" : ""
+                  }`}
+                >
+                  <StoreSurveySection
+                    properties={section.properties}
+                    isDark={isDark}
+                    isInteractive={false}
+                    accentColor={storeConfig.theme?.accentColor || "#1AB38C"}
+                    style={{
+                      backgroundColor: props.backgroundColor || "#FFFFFF",
+                      ...customStyle
+                    }}
+                  />
+                </div>
               );
             }
 

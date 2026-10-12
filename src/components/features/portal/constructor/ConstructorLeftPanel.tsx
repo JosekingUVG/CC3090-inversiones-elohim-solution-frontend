@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PortalModal } from "@/components/ui/PortalModal";
+import { safeHexColor } from "@/lib/utils";
 
 interface ConstructorLeftPanelProps {
   dirtyPageIds: Set<string>;
@@ -123,21 +124,39 @@ export function ConstructorLeftPanel({
   onOpenAgent
 }: ConstructorLeftPanelProps) {
   if (!storeConfig) return null;
-  const theme = storeConfig.theme || {
+  const defaultTheme = {
     backgroundColor: "#F8FAFC",
     accentColor: "#1AB38C",
     backgroundGradient: "linear-gradient(135deg, #1e3a8a 0%, #0d9488 100%)",
     useGradient: false
   };
 
-  const handleThemeChange = (field: string, val: unknown) => {
-    setStoreConfig((prev) => prev ? ({
-      ...prev,
-      theme: {
-        ...theme,
-        [field]: val
+  const theme = {
+    ...defaultTheme,
+    ...(storeConfig.theme || {})
+  };
+
+  const handleThemeChange = (fieldOrUpdates: string | Record<string, unknown>, val?: unknown) => {
+    setStoreConfig((prev) => {
+      if (!prev) return prev;
+      const currentTheme = {
+        ...defaultTheme,
+        ...(prev.theme || {})
+      };
+      const updates = typeof fieldOrUpdates === "string" ? { [fieldOrUpdates]: val } : fieldOrUpdates;
+      const updatedTheme = {
+        ...currentTheme,
+        ...updates
+      };
+      if (updatedTheme.useGradient && !updatedTheme.backgroundGradient) {
+        updatedTheme.backgroundGradient = defaultTheme.backgroundGradient;
       }
-    }) : prev);
+      return {
+        ...prev,
+        pages: prev.pages || [],
+        theme: updatedTheme
+      };
+    });
   };
 
   const gradientPresets = [
@@ -196,7 +215,8 @@ export function ConstructorLeftPanel({
     reader.readAsText(file);
   };
 
-  const currentPage = storeConfig.pages.find((p) => p.id === activePageId) || storeConfig.pages[0];
+  const pages = storeConfig.pages || [];
+  const currentPage = pages.find((p) => p.id === activePageId) || pages[0] || { id: "home", name: "Inicio", sections: [] };
 
   return (
     <>
@@ -453,15 +473,16 @@ export function ConstructorLeftPanel({
                 Páginas del Sitio
               </span>
               <div className="flex flex-col gap-1">
-                {storeConfig.pages.map((p) => {
+                {(storeConfig.pages || []).map((p) => {
                   const isActive = p.id === activePageId;
+                  const pageSections = p.sections || [];
                   return (
                     <div
                       key={p.id}
                       onClick={() => {
                         setActivePageId(p.id);
-                        if (p.sections.length > 0) {
-                          setSelectedSectionId(p.sections[0].id);
+                        if (pageSections.length > 0) {
+                          setSelectedSectionId(pageSections[0].id);
                           setShowRightPanel?.(true);
                         }
                       }}
@@ -539,7 +560,7 @@ export function ConstructorLeftPanel({
                   <div className="flex items-center gap-2">
                     <input
                       type="color"
-                      value={theme.accentColor}
+                      value={safeHexColor(theme.accentColor, "#1AB38C")}
                       onChange={(e) => handleThemeChange("accentColor", e.target.value)}
                       className="w-8 h-8 rounded-lg cursor-pointer border-none bg-transparent outline-none p-0 shrink-0"
                     />
@@ -555,7 +576,7 @@ export function ConstructorLeftPanel({
                   <label className="relative inline-flex items-center cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      checked={theme.useGradient}
+                      checked={Boolean(theme.useGradient)}
                       onChange={(e) => handleThemeChange("useGradient", e.target.checked)}
                       className="sr-only peer"
                     />
@@ -569,11 +590,11 @@ export function ConstructorLeftPanel({
                     <div className="flex items-center gap-2">
                       <input
                         type="color"
-                        value={theme.backgroundColor}
+                        value={safeHexColor(theme.backgroundColor, "#F8FAFC")}
                         onChange={(e) => handleThemeChange("backgroundColor", e.target.value)}
                         className="w-8 h-8 rounded-lg cursor-pointer border-none bg-transparent outline-none p-0 shrink-0"
                       />
-                      <span className="text-[10px] font-bold font-mono text-slate-400">{theme.backgroundColor}</span>
+                      <span className="text-[10px] font-bold font-mono text-slate-400">{theme.backgroundColor || "#F8FAFC"}</span>
                     </div>
                   </div>
                 ) : (
@@ -581,7 +602,7 @@ export function ConstructorLeftPanel({
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Degradado CSS</label>
                       <textarea
-                        value={theme.backgroundGradient}
+                        value={theme.backgroundGradient || ""}
                         onChange={(e) => handleThemeChange("backgroundGradient", e.target.value)}
                         placeholder="linear-gradient(135deg, ...)"
                         className="w-full h-16 p-2 rounded-xl border border-slate-800 bg-slate-955 text-slate-300 font-mono text-[10px] outline-none focus:border-[#22D3A6] transition-all resize-none"
@@ -595,7 +616,7 @@ export function ConstructorLeftPanel({
                           <button
                             key={idx}
                             type="button"
-                            onClick={() => handleThemeChange("backgroundGradient", preset.css)}
+                            onClick={() => handleThemeChange({ backgroundGradient: preset.css, useGradient: true })}
                             className="text-left p-1.5 rounded-lg border border-slate-850 hover:border-slate-800 bg-slate-955/20 text-[9px] text-slate-350 hover:text-white flex items-center gap-2 transition-all cursor-pointer"
                           >
                             <div style={{ backgroundImage: preset.css }} className="w-4 h-4 rounded shrink-0 border border-slate-800" />
@@ -721,6 +742,7 @@ export function ConstructorLeftPanel({
                   <option value="richtext">Bloque de Texto Enriquecido</option>
                   <option value="cart">Sección de Checkout (Carrito/Pagos)</option>
                   <option value="announcement">Barra de Anuncios</option>
+                  <option value="survey">Módulo de Encuesta (Tipo Google Forms)</option>
                 </select>
               </div>
 

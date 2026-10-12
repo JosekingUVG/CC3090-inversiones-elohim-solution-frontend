@@ -29,11 +29,18 @@ import {
   ArrowRight,
   CreditCard,
   Check,
-  X
+  X,
+  Download,
+  CheckCircle2,
+  FileText
 } from "lucide-react";
 import { toast } from "sonner";
 import { ClientAuthModal } from "@/components/features/auth/ClientAuthModal";
 import { StorefrontCartDrawer } from "@/components/features/carrito/StorefrontCartDrawer";
+import { StoreSurveySection } from "@/components/features/portal/constructor/StoreSurveySection";
+import { StripePaymentInfoBox } from "@/components/features/pago/StripePaymentInfoBox";
+import { generateAndDownloadReceipt, type ReceiptData } from "@/lib/utils/pdfReceipt";
+import { safeBackgroundImage } from "@/lib/utils";
 import type { TMetodoPagoGuardado } from "@/types";
 
 // Stripe and payment imports
@@ -72,7 +79,7 @@ const getSectionStyle = (properties: SectionProperties) => {
   const styles: React.CSSProperties = {};
   if (!properties) return styles;
 
-  const bgColor = properties.backgroundColor || "transparent";
+  const bgColor = properties.backgroundColor;
   const textColor = properties.textColor || undefined;
 
   if (properties.useGlassmorphism) {
@@ -84,7 +91,7 @@ const getSectionStyle = (properties: SectionProperties) => {
       const b = parseInt(hex.substring(4, 6), 16) || 255;
       const alpha = (properties.opacity ?? 30) / 100;
       rgbaBg = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    } else if (bgColor === "transparent") {
+    } else if (bgColor === "transparent" || !bgColor) {
       const alpha = (properties.opacity ?? 30) / 100;
       rgbaBg = `rgba(255, 255, 255, ${alpha})`;
     } else {
@@ -97,20 +104,16 @@ const getSectionStyle = (properties: SectionProperties) => {
     styles.WebkitBackdropFilter = `blur(${blurAmount}px)`;
     styles.border = "1px solid rgba(255, 255, 255, 0.2)";
     styles.boxShadow = "0 8px 32px 0 rgba(0, 0, 0, 0.1)";
-  } else {
-    if (bgColor !== "transparent") {
-      if (bgColor.startsWith("#") && properties.opacity !== undefined && properties.opacity !== 100) {
-        const hex = bgColor.replace("#", "");
-        const r = parseInt(hex.substring(0, 2), 16) || 0;
-        const g = parseInt(hex.substring(2, 4), 16) || 0;
-        const b = parseInt(hex.substring(4, 6), 16) || 0;
-        const alpha = properties.opacity / 100;
-        styles.backgroundColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-      } else {
-        styles.backgroundColor = bgColor;
-      }
+  } else if (bgColor && bgColor !== "transparent") {
+    if (bgColor.startsWith("#") && properties.opacity !== undefined && properties.opacity !== 100) {
+      const hex = bgColor.replace("#", "");
+      const r = parseInt(hex.substring(0, 2), 16) || 0;
+      const g = parseInt(hex.substring(2, 4), 16) || 0;
+      const b = parseInt(hex.substring(4, 6), 16) || 0;
+      const alpha = properties.opacity / 100;
+      styles.backgroundColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
     } else {
-      styles.backgroundColor = "transparent";
+      styles.backgroundColor = bgColor;
     }
   }
 
@@ -207,6 +210,8 @@ export default function LivePreviewPage() {
     window.location.hostname === (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "")
   );
 
+  const isStoreDark = visualConfig?.theme?.backgroundColor ? isDarkBg(visualConfig.theme.backgroundColor) : false;
+
   // Checkout states
   const [sucursales, setSucursales] = useState<import("@/lib/api/admin").SucursalDto[]>([]);
   const [selectedSucursalId, setSelectedSucursalId] = useState("");
@@ -218,6 +223,8 @@ export default function LivePreviewPage() {
   const [tarjetas, setTarjetas] = useState<TMetodoPagoGuardado[]>([]);
   const [loadingTarjetas, setLoadingTarjetas] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [completedReceipt, setCompletedReceipt] = useState<ReceiptData | null>(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
 
   const cargarTarjetas = async () => {
     if (!clientToken) return;
@@ -280,6 +287,27 @@ export default function LivePreviewPage() {
         const res = await crearReservacionV1(clientToken, { sucursalId: selectedSucursalId });
         
         toast.success(`Reservación creada con éxito. ID: ${res.id}`);
+        const receiptItems = cartItems.map((ci) => ({
+          nombre: ci.nombreProducto,
+          cantidad: ci.cantidad,
+          precioUnitario: ci.precioUnitario,
+          subtotal: ci.subtotal ?? (ci.precioUnitario * ci.cantidad),
+        }));
+        const branchName = sucursales.find(s => s.id === selectedSucursalId)?.nombre;
+        const receiptData: ReceiptData = {
+          orderId: res.id,
+          storeName: store?.nombre || "Tienda",
+          storeSlug: store?.slug,
+          date: new Date(),
+          customerName: client?.nombre,
+          customerEmail: client?.correo,
+          paymentMethod: "contra_entrega",
+          branchName,
+          items: receiptItems,
+          totalAmount: res.montoTotal || cartTotal,
+        };
+        setCompletedReceipt(receiptData);
+        setShowReceiptModal(true);
         setSelectedSucursalId("");
         await mutateCart();
       } else if (selectedPaymentMethod === "tarjeta") {
@@ -306,6 +334,27 @@ export default function LivePreviewPage() {
         const intent = await crearPaymentIntent(clientToken, res.id, stripeCardMethodId || undefined);
         
         toast.success(`Pago con tarjeta iniciado con éxito. Reservación ID: ${res.id}`);
+        const receiptItems = cartItems.map((ci) => ({
+          nombre: ci.nombreProducto,
+          cantidad: ci.cantidad,
+          precioUnitario: ci.precioUnitario,
+          subtotal: ci.subtotal ?? (ci.precioUnitario * ci.cantidad),
+        }));
+        const branchName = sucursales.find(s => s.id === fallbackSucursalId)?.nombre;
+        const receiptData: ReceiptData = {
+          orderId: res.id,
+          storeName: store?.nombre || "Tienda",
+          storeSlug: store?.slug,
+          date: new Date(),
+          customerName: client?.nombre,
+          customerEmail: client?.correo,
+          paymentMethod: "tarjeta",
+          branchName,
+          items: receiptItems,
+          totalAmount: res.montoTotal || cartTotal,
+        };
+        setCompletedReceipt(receiptData);
+        setShowReceiptModal(true);
         setStripeCardMethodId(null);
         await mutateCart();
       }
@@ -432,17 +481,16 @@ export default function LivePreviewPage() {
         }
 
         // Migrate config to have theme settings
-        if (!config.theme) {
-          config = {
-            ...config,
-            theme: {
-              backgroundColor: "#F8FAFC",
-              accentColor: "#1AB38C",
-              backgroundGradient: "linear-gradient(135deg, #1e3a8a 0%, #0d9488 100%)",
-              useGradient: false
-            }
-          };
-        }
+        config = {
+          ...config,
+          theme: {
+            backgroundColor: "#F8FAFC",
+            accentColor: "#1AB38C",
+            backgroundGradient: "linear-gradient(135deg, #1e3a8a 0%, #0d9488 100%)",
+            useGradient: false,
+            ...(config.theme || {})
+          }
+        };
 
         setVisualConfig(config);
         setActivePageId(config.currentPageId || "home");
@@ -647,15 +695,17 @@ export default function LivePreviewPage() {
                 fontWeight: props.fontWeight === "Bold" ? "bold" : "normal",
                 ...customStyle
               }}
-              className="text-center text-xs tracking-wider transition-all select-none relative w-full"
+              className={`${STORE_LAYOUT.section} text-center text-xs tracking-wider transition-all select-none relative`}
             >
-              {props.linkAction === "Open Link" && props.linkUrl ? (
-                <a href={props.linkUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center justify-center gap-1.5 cursor-pointer">
+              <div className={STORE_LAYOUT.content}>
+                {props.linkAction === "Open Link" && props.linkUrl ? (
+                  <a href={props.linkUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center justify-center gap-1.5 cursor-pointer">
+                    <span>{props.bannerText}</span>
+                  </a>
+                ) : (
                   <span>{props.bannerText}</span>
-                </a>
-              ) : (
-                <span>{props.bannerText}</span>
-              )}
+                )}
+              </div>
             </div>
           );
         }
@@ -762,14 +812,18 @@ export default function LivePreviewPage() {
 
         if (section.type === "hero") {
           const theme = visualConfig.theme;
-          const hasImage = !!props.backgroundImage;
+          const hasImage = Boolean(props.backgroundImage && typeof props.backgroundImage === "string" && props.backgroundImage.trim().length > 0);
+          const bgImageUrl = hasImage
+            ? safeBackgroundImage(props.backgroundImage)
+            : undefined;
           const heroStyle: React.CSSProperties = {
             color: props.textColor || "#FFFFFF",
-            ...(hasImage
+            ...(hasImage && bgImageUrl
               ? {
-                  backgroundImage: `url(${props.backgroundImage})`,
+                  backgroundImage: bgImageUrl,
                   backgroundSize: "cover",
-                  backgroundPosition: "center"
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat"
                 }
               : {}),
             ...customStyle
@@ -781,6 +835,9 @@ export default function LivePreviewPage() {
               heroStyle.backgroundColor = theme?.backgroundColor || "#0F172A";
             }
           }
+          const safeOpacity = Number.isFinite(Number(props.overlayOpacity))
+            ? Math.min(Math.max(Number(props.overlayOpacity), 0), 100) / 100
+            : 0.55;
           return (
             <section
               key={section.id}
@@ -790,7 +847,7 @@ export default function LivePreviewPage() {
             >
               {hasImage && (
                 <div 
-                  style={{ backgroundColor: `rgba(0, 0, 0, ${(props.overlayOpacity ?? 55) / 100})` }} 
+                  style={{ backgroundColor: `rgba(0, 0, 0, ${safeOpacity})` }} 
                   className="absolute inset-0 pointer-events-none" 
                 />
               )}
@@ -1075,9 +1132,9 @@ export default function LivePreviewPage() {
                 paddingBottom: `${props.paddingVertical || 48}px`,
                 ...customStyle
               }}
-              className="px-8 text-center transition-all select-none relative w-full"
+              className={`${STORE_LAYOUT.section} text-center transition-all select-none relative`}
             >
-              <div className="max-w-2xl mx-auto space-y-3">
+              <div className={`${STORE_LAYOUT.content} max-w-3xl space-y-3`}>
                 <h2 className="text-xl font-bold tracking-tight">
                   {props.title || "Título de la Página"}
                 </h2>
@@ -1103,9 +1160,9 @@ export default function LivePreviewPage() {
                 color: props.textColor || "#0F172A",
                 ...customStyle
               }}
-              className="py-12 px-6 flex flex-col gap-6 w-full"
+              className={`${STORE_LAYOUT.section} py-12 transition-all select-none`}
             >
-              <div className="max-w-2xl mx-auto w-full flex flex-col gap-6">
+              <div className={`${STORE_LAYOUT.content} max-w-3xl flex flex-col gap-6`}>
                 {blocks.map((block) => {
                   if (block.type === "text") {
                     return (
@@ -1179,8 +1236,9 @@ export default function LivePreviewPage() {
                 color: props.textColor || "#0F172A",
                 ...customStyle
               }}
-              className="py-16 px-6 max-w-6xl w-full mx-auto space-y-8 flex-1 w-full text-left"
+              className={`${STORE_LAYOUT.section} py-16 flex-1 text-left`}
             >
+              <div className={`${STORE_LAYOUT.content} space-y-8`}>
               <div 
                 style={{ borderBottomColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(241, 245, 249, 1)" }}
                 className="flex items-center gap-3 border-b pb-4"
@@ -1413,6 +1471,7 @@ export default function LivePreviewPage() {
                     {/* Stripe Saved Cards & Form */}
                     {selectedPaymentMethod === "tarjeta" && stripePromise && (
                       <div className="space-y-4 text-left">
+                        <StripePaymentInfoBox isDark={isDark} />
                         <span style={{ color: isDark ? "#CBD5E1" : "#94A3B8" }} className="text-[10px] font-bold uppercase tracking-wider block">Tus Tarjetas Guardadas</span>
                         
                         {loadingTarjetas ? (
@@ -1565,7 +1624,25 @@ export default function LivePreviewPage() {
                   </div>
                 </div>
               )}
+              </div>
             </section>
+          );
+        }
+
+        if (section.type === "survey") {
+          return (
+            <StoreSurveySection
+              key={section.id}
+              id={section.id}
+              properties={section.properties}
+              isDark={isDark}
+              isInteractive={true}
+              accentColor={visualConfig?.theme?.accentColor || "#22D3A6"}
+              style={{
+                backgroundColor: props.backgroundColor || "#FFFFFF",
+                ...customStyle
+              }}
+            />
           );
         }
 
@@ -1610,6 +1687,92 @@ export default function LivePreviewPage() {
         }}
         products={displayProducts}
       />
+
+      {/* Receipt Modal */}
+      {showReceiptModal && completedReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div
+            style={{
+              backgroundColor: isStoreDark ? "#0F172A" : "#FFFFFF",
+              borderColor: isStoreDark ? "rgba(255, 255, 255, 0.1)" : "#E2E8F0",
+              color: isStoreDark ? "#F8FAFC" : "#0F172A",
+            }}
+            className="w-full max-w-md rounded-3xl border shadow-2xl p-6 md:p-8 space-y-6 text-center relative"
+          >
+            <button
+              onClick={() => setShowReceiptModal(false)}
+              className="absolute right-4 top-4 p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 transition-colors cursor-pointer bg-transparent border-none"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-inner">
+                <CheckCircle2 size={36} strokeWidth={2.5} />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">
+                ¡Orden Completada!
+              </span>
+              <h3 className="text-xl font-black">¡Gracias por tu compra!</h3>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                Tu pedido en <strong>{completedReceipt.storeName}</strong> ha sido procesado exitosamente.
+              </p>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: isStoreDark ? "rgba(2, 6, 23, 0.6)" : "#F8FAFC",
+                borderColor: isStoreDark ? "rgba(255, 255, 255, 0.08)" : "#E2E8F0",
+              }}
+              className="rounded-2xl border p-4 space-y-2.5 text-xs text-left"
+            >
+              <div className="flex justify-between items-center text-slate-400">
+                <span>ID de Reserva:</span>
+                <span className="font-mono font-bold text-slate-200">{completedReceipt.orderId}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-400">
+                <span>Método de pago:</span>
+                <span className="font-semibold text-slate-200">
+                  {completedReceipt.paymentMethod === "tarjeta" ? "Tarjeta (Stripe)" : "Contra entrega"}
+                </span>
+              </div>
+              {completedReceipt.branchName && (
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>Sucursal:</span>
+                  <span className="font-semibold text-slate-200">{completedReceipt.branchName}</span>
+                </div>
+              )}
+              <div className="border-t border-slate-700/40 pt-2 flex justify-between items-center font-bold text-sm">
+                <span>Total:</span>
+                <span className="text-emerald-400">
+                  Q {completedReceipt.totalAmount.toLocaleString("es-GT", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => generateAndDownloadReceipt(completedReceipt)}
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition-all hover:scale-[1.02] border-none"
+              >
+                <Download size={16} />
+                <span>Descargar Recibo en PDF</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReceiptModal(false)}
+                className="w-full h-10 rounded-xl text-xs font-semibold text-slate-400 hover:text-white cursor-pointer transition-colors bg-transparent border-none"
+              >
+                Continuar comprando
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
