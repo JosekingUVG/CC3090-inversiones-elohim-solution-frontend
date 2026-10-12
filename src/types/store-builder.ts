@@ -52,6 +52,19 @@ export type SectionProperties = {
   showCardPayments?: boolean;
   menuItems?: string[];
   blocks?: StoreBlock[];
+  surveyTitle?: string;
+  surveyDescription?: string;
+  surveyQuestions?: SurveyQuestion[];
+  surveySubmitText?: string;
+  surveySuccessMessage?: string;
+};
+
+export type SurveyQuestion = {
+  id: string;
+  title: string;
+  type: "text" | "choice" | "rating" | "checkbox";
+  options?: string[];
+  required?: boolean;
 };
 
 export type StoreSection = {
