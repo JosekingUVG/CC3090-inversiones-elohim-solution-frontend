@@ -4,10 +4,12 @@ import { useEffect, useState, useMemo } from "react";
 import { useClientAuthStore } from "@/stores/useClientAuthStore";
 import { useCarrito } from "@/hooks/useCarrito";
 import { useRouter } from "next/navigation";
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ArrowLeft, Loader2, CheckCircle, CreditCard, Check } from "lucide-react";
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ArrowLeft, Loader2, CheckCircle, CreditCard, Check, Download } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import type { TMetodoPagoGuardado } from "@/types";
+import { StripePaymentInfoBox } from "@/components/features/pago/StripePaymentInfoBox";
+import { generateAndDownloadReceipt, type ReceiptData } from "@/lib/utils/pdfReceipt";
 
 // Stripe and payment imports
 import { Elements } from "@stripe/react-stripe-js";
@@ -53,6 +55,7 @@ export function StorefrontCartDrawer({ isOpen, onClose, onOpenAuth, products }: 
   const [tarjetas, setTarjetas] = useState<TMetodoPagoGuardado[]>([]);
   const [loadingTarjetas, setLoadingTarjetas] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [completedReceipt, setCompletedReceipt] = useState<ReceiptData | null>(null);
 
   const cargarTarjetas = async () => {
     if (!clientToken) return;
@@ -178,6 +181,22 @@ export function StorefrontCartDrawer({ isOpen, onClose, onOpenAuth, products }: 
         
         toast.success("Reservación creada con éxito.");
         setCreatedReservationId(res.id);
+        const receiptItems = items.map((ci) => ({
+          nombre: ci.nombreProducto,
+          cantidad: ci.cantidad,
+          precioUnitario: ci.precioUnitario,
+          subtotal: ci.subtotal ?? (ci.precioUnitario * ci.cantidad),
+        }));
+        const branchName = sucursales.find(s => s.id === selectedSucursalId)?.nombre;
+        setCompletedReceipt({
+          orderId: res.id,
+          storeName: "Tienda",
+          date: new Date(),
+          paymentMethod: "contra_entrega",
+          branchName,
+          items: receiptItems,
+          totalAmount: res.montoTotal || total,
+        });
         await mutateCart();
         setView("success");
       } else if (selectedPaymentMethod === "tarjeta") {
@@ -204,6 +223,22 @@ export function StorefrontCartDrawer({ isOpen, onClose, onOpenAuth, products }: 
         
         toast.success("Pago con tarjeta procesado con éxito.");
         setCreatedReservationId(res.id);
+        const receiptItems = items.map((ci) => ({
+          nombre: ci.nombreProducto,
+          cantidad: ci.cantidad,
+          precioUnitario: ci.precioUnitario,
+          subtotal: ci.subtotal ?? (ci.precioUnitario * ci.cantidad),
+        }));
+        const branchName = sucursales.find(s => s.id === fallbackSucursalId)?.nombre;
+        setCompletedReceipt({
+          orderId: res.id,
+          storeName: "Tienda",
+          date: new Date(),
+          paymentMethod: "tarjeta",
+          branchName,
+          items: receiptItems,
+          totalAmount: res.montoTotal || total,
+        });
         await mutateCart();
         setView("success");
       }
@@ -284,6 +319,16 @@ export function StorefrontCartDrawer({ isOpen, onClose, onOpenAuth, products }: 
                     <span className="text-slate-400 font-bold uppercase tracking-wider block text-[10px]">ID de Pedido / Reserva</span>
                     <span className="font-mono text-slate-800 font-extrabold select-all">{createdReservationId}</span>
                   </div>
+                )}
+                {completedReceipt && (
+                  <button
+                    type="button"
+                    onClick={() => generateAndDownloadReceipt(completedReceipt)}
+                    className="w-full h-11 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs shadow-md transition-all cursor-pointer border-none flex items-center justify-center gap-2 mt-2"
+                  >
+                    <Download size={15} />
+                    <span>Descargar Recibo en PDF</span>
+                  </button>
                 )}
                 <button
                   onClick={onClose}
@@ -492,6 +537,7 @@ export function StorefrontCartDrawer({ isOpen, onClose, onOpenAuth, products }: 
                 {/* Stripe Saved Cards & Form */}
                 {selectedPaymentMethod === "tarjeta" && stripePromise && (
                   <div className="space-y-4 text-left">
+                    <StripePaymentInfoBox isDark={false} />
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tus Tarjetas Guardadas</span>
                     
                     {loadingTarjetas ? (
