@@ -295,10 +295,12 @@ export default function LandingPage() {
               >
                 <div>
                   <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform shadow-inner"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-5 group-hover:scale-105 transition-transform shadow-inner"
                     style={{ backgroundColor: `${f.color}18`, color: f.color }}
                   >
-                    {ICON_MAP[f.icon]}
+                    <div className="w-5 h-5 flex items-center justify-center">
+                      {ICON_MAP[f.icon]}
+                    </div>
                   </div>
                   <h3 className="text-[24px] font-medium leading-[32px] tracking-[-0.02em] text-[#dbe3ef] mb-2" style={{ fontFamily: "'Geist', sans-serif" }}>{f.title}</h3>
                   <p className="text-[15px] text-[#bacac2] leading-[24px]">{f.desc}</p>
@@ -333,7 +335,7 @@ export default function LandingPage() {
 
             <div className="relative grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Laser beam connector */}
-              <div className="hidden md:block absolute top-[4.5rem] left-[calc(16.67%+2rem)] right-[calc(16.67%+2rem)] h-0.5 z-0 overflow-hidden rounded-full bg-[#3c4a44]/40">
+              <div className="hidden md:block absolute top-[3rem] left-[calc(16.67%+2rem)] right-[calc(16.67%+2rem)] h-0.5 z-0 overflow-hidden rounded-full bg-[#3c4a44]/40">
                 <div
                   ref={laserBeamRef}
                   className="h-full w-full bg-gradient-to-r from-[#50f0c1] via-[#7bd0ff] to-[#22d3a6] origin-left scale-x-0 shadow-[0_0_20px_#22d3a6]"
@@ -345,10 +347,12 @@ export default function LandingPage() {
                   key={s.step}
                   className="gsap-step-card relative z-10 flex flex-col items-center text-center p-6 rounded-2xl bg-[#182029]/70 shadow-lg border border-[#3c4a44]/40"
                 >
-                  <div className="step-icon relative w-16 h-16 rounded-2xl bg-[#232b33] flex items-center justify-center mb-4 text-3xl shadow-md" style={{ color: s.color }}>
-                    {ICON_MAP[s.icon]}
+                  <div className="step-icon relative w-12 h-12 rounded-xl bg-[#232b33] flex items-center justify-center mb-4 shadow-md" style={{ color: s.color }}>
+                    <div className="w-6 h-6 flex items-center justify-center">
+                      {ICON_MAP[s.icon]}
+                    </div>
                     <div
-                      className="absolute -top-2 -right-2 w-7 h-7 rounded-full text-[#00382a] text-[14px] font-bold flex items-center justify-center shadow-md"
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-[#00382a] text-[11px] font-bold flex items-center justify-center shadow-md"
                       style={{ backgroundColor: s.color, fontFamily: "'Geist', sans-serif" }}
                     >
                       {parseInt(s.step)}
@@ -372,8 +376,10 @@ export default function LandingPage() {
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-[#50f0c1]/20 blur-[100px] pointer-events-none" />
 
             <div className="relative z-10 max-w-[800px] flex flex-col items-center">
-              <div className="w-14 h-14 rounded-2xl bg-[#50f0c1]/10 flex items-center justify-center mb-6 shadow-[0_0_24px_rgba(80,240,193,0.3)] text-3xl border border-[#50f0c1]/20" style={{ color: "#50f0c1" }}>
-                {ICON_MAP.zap}
+              <div className="w-11 h-11 rounded-xl bg-[#50f0c1]/10 flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(80,240,193,0.25)] border border-[#50f0c1]/20" style={{ color: "#50f0c1" }}>
+                <div className="w-5 h-5 flex items-center justify-center">
+                  {ICON_MAP.zap}
+                </div>
               </div>
               <h2 className="gsap-cta-title text-[36px] md:text-[52px] font-semibold leading-[1.1] tracking-[-0.035em] text-[#dbe3ef] mb-4" style={{ fontFamily: "'Geist', sans-serif" }}>
                 ¿Listo para transformar tu distribución?
