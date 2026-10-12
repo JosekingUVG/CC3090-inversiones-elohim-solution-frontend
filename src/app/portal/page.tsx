@@ -23,6 +23,7 @@ import {
   LogOut,
   ChevronDown,
   Eye,
+  Trash2,
   X,
   Loader2,
   Mail,
@@ -31,9 +32,11 @@ import {
   Kanban,
   BookOpen,
 } from "lucide-react";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import {
   getTiendas,
   crearTienda,
+  eliminarTienda,
   type TiendaDto,
   getSucursales,
   type SucursalDto,
@@ -116,6 +119,9 @@ function PortalContent() {
   const [newStoreName, setNewStoreName] = useState("");
   const [newStoreSlug, setNewStoreSlug] = useState("");
   const [isCreatingStore, setIsCreatingStore] = useState(false);
+  const [storeToDelete, setStoreToDelete] = useState<TiendaDto | null>(null);
+  const [isDeleteStoreModalOpen, setIsDeleteStoreModalOpen] = useState(false);
+  const [isDeletingStore, setIsDeletingStore] = useState(false);
 
   // Shared store details
   const [hasCloudinary, setHasCloudinary] = useState(false);
@@ -453,6 +459,42 @@ function PortalContent() {
       toast.error(msg);
     } finally {
       setIsCreatingStore(false);
+    }
+  };
+
+  const handleDeleteStore = async () => {
+    if (!storeToDelete || !token) return;
+    try {
+      setIsDeletingStore(true);
+      await eliminarTienda(storeToDelete.id, token);
+      toast.success(
+        language === "es"
+          ? `Tienda "${storeToDelete.nombre}" eliminada con éxito`
+          : `Store "${storeToDelete.nombre}" successfully deleted`
+      );
+      const updatedTiendas = await getTiendas(token);
+      setTiendas(updatedTiendas);
+      if (activeStore?.id === storeToDelete.id) {
+        if (updatedTiendas.length > 0) {
+          setActiveStore(updatedTiendas[0]);
+          window.localStorage.setItem("active_tenant_id", updatedTiendas[0].id);
+        } else {
+          setActiveStore(null);
+          window.localStorage.removeItem("active_tenant_id");
+        }
+      }
+      setIsDeleteStoreModalOpen(false);
+      setStoreToDelete(null);
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : language === "es"
+          ? "No se pudo eliminar la tienda"
+          : "Failed to delete store"
+      );
+    } finally {
+      setIsDeletingStore(false);
     }
   };
 
@@ -916,6 +958,24 @@ function PortalContent() {
                         >
                           <Eye size={12} />
                         </a>
+                        {esAdmin && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setStoreToDelete(t);
+                              setIsDeleteStoreModalOpen(true);
+                            }}
+                            className={`p-1.5 rounded-lg transition-all cursor-pointer mr-1 flex items-center justify-center border-none bg-transparent ${
+                              isDark
+                                ? "text-slate-500 hover:text-red-400 hover:bg-red-500/10"
+                                : "text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            }`}
+                            title={`Eliminar tienda ${t.nombre}`}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1223,6 +1283,28 @@ function PortalContent() {
           </div>
         </PortalModal>
       )}
+
+      {/* CONFIRM DELETE STORE MODAL */}
+      <ConfirmationModal
+        isOpen={isDeleteStoreModalOpen}
+        title={language === "es" ? "Eliminar Tienda" : "Delete Store"}
+        message={
+          language === "es"
+            ? `¿Estás seguro de que deseas eliminar permanentemente la tienda "${storeToDelete?.nombre}"? Esta acción borrará todas sus configuraciones, inventarios, productos y sucursales asociadas.`
+            : `Are you sure you want to permanently delete the store "${storeToDelete?.nombre}"? This action will remove all associated configurations, inventory, products, and branches.`
+        }
+        confirmText={language === "es" ? "Eliminar tienda" : "Delete store"}
+        cancelText={language === "es" ? "Cancelar" : "Cancel"}
+        isDangerous={true}
+        isLoading={isDeletingStore}
+        onConfirm={handleDeleteStore}
+        onCancel={() => {
+          if (!isDeletingStore) {
+            setIsDeleteStoreModalOpen(false);
+            setStoreToDelete(null);
+          }
+        }}
+      />
     </div>
   );
 }

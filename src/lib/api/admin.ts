@@ -106,8 +106,22 @@ export interface TiendaDto {
 export async function getTiendas(token: string): Promise<TiendaDto[]> {
   return apiRequest<TiendaDto[]>(
     "/api/v1/tiendas",
-    { method: "GET", headers: buildAuthHeaders(token) },
+    { method: "GET", headers: buildAuthHeaders(token, true) },
     "No se pudo obtener la lista de tiendas"
+  );
+}
+
+export async function eliminarTienda(
+  id: string,
+  token: string
+): Promise<{ mensaje: string }> {
+  return apiRequest<{ mensaje: string }>(
+    `/api/v1/tiendas/${id}`,
+    {
+      method: "DELETE",
+      headers: buildAuthHeaders(token, true),
+    },
+    "No se pudo eliminar la tienda"
   );
 }
 
