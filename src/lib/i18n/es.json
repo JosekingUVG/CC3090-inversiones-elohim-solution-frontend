@@ -53,7 +53,12 @@
     "no": "No",
     "close": "Cerrar",
     "search": "Buscar",
-    "no_results": "No se encontraron resultados"
+    "no_results": "No se encontraron resultados",
+    "pagination_summary": "Mostrando {from}-{to} de {total}",
+    "pagination_page_size": "Filas por página",
+    "pagination_previous": "Anterior",
+    "pagination_next": "Siguiente",
+    "pagination_page_of": "Página {page} de {pages}"
   },
   "Sucursales": {
     "title": "Sucursales",

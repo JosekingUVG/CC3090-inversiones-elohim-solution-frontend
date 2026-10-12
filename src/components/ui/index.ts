@@ -7,3 +7,4 @@ export { Card } from "./card";
 export { ConfirmModal } from "./confirm-modal";
 export { Input } from "./input";
 export { QuantitySelector } from "./QuantitySelector";
+export { TablePagination } from "./TablePagination";

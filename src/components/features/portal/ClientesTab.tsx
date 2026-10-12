@@ -1,8 +1,10 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, Users } from "lucide-react";
+import { Loader2, Users, Search } from "lucide-react";
 import type { PlatformUsuarioDto } from "@/lib/api/admin";
+import { TablePagination } from "@/components/ui";
 
 interface ClientesTabProps {
   usuarios: PlatformUsuarioDto[];
@@ -20,13 +22,51 @@ export function ClientesTab({
   onOpenChangeRol,
 }: ClientesTabProps) {
   const t = useTranslations("Clientes");
-  const clientUsuarios = usuarios.filter((u) => u.tipoUsuario === "cliente");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const clientUsuarios = useMemo(() => {
+    return usuarios.filter((u) => u.tipoUsuario === "cliente");
+  }, [usuarios]);
+
+  const filteredClientUsuarios = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return clientUsuarios;
+    return clientUsuarios.filter((u) => {
+      const nameMatch = u.name.toLowerCase().includes(q);
+      const emailMatch = u.email.toLowerCase().includes(q);
+      return nameMatch || emailMatch;
+    });
+  }, [clientUsuarios, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredClientUsuarios.length / pageSize));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+  const pageStart = (safePage - 1) * pageSize;
+  const paginatedClientUsuarios = filteredClientUsuarios.slice(pageStart, pageStart + pageSize);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-black text-white">{t("title")}</h2>
-        <p className="text-xs text-slate-400">{t("subtitle")}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-black text-white">{t("title")}</h2>
+          <p className="text-xs text-slate-400">{t("subtitle")}</p>
+        </div>
+        {clientUsuarios.length > 0 && (
+          <div className="relative w-full sm:w-60">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Buscar cliente..."
+              className="w-full h-9 pl-9 pr-3 rounded-xl border border-slate-800 bg-slate-900/60 text-xs text-slate-200 placeholder:text-slate-500 focus:border-[#22D3A6]/50 focus:outline-none transition-all"
+            />
+          </div>
+        )}
       </div>
 
       {loadingUsuarios ? (
@@ -37,6 +77,10 @@ export function ClientesTab({
         <div className="rounded-xl border border-dashed border-slate-800 p-12 text-center space-y-3">
           <Users className="mx-auto text-slate-600" size={40} />
           <p className="text-sm text-slate-400">{t("empty_state")}</p>
+        </div>
+      ) : filteredClientUsuarios.length === 0 ? (
+        <div className="rounded-xl border border-slate-900 bg-slate-950/20 p-8 text-center text-xs text-slate-500">
+          No se encontraron clientes con el criterio de búsqueda.
         </div>
       ) : (
         <div className="rounded-xl border border-slate-900 bg-slate-950/20 overflow-hidden">
@@ -51,7 +95,7 @@ export function ClientesTab({
                 </tr>
               </thead>
               <tbody>
-                {clientUsuarios.map((u) => (
+                {paginatedClientUsuarios.map((u) => (
                   <tr
                     key={u.id}
                     className="border-b border-slate-900/55 hover:bg-slate-950/30 transition-all"
@@ -95,6 +139,17 @@ export function ClientesTab({
               </tbody>
             </table>
           </div>
+          <TablePagination
+            currentPage={safePage}
+            totalItems={filteredClientUsuarios.length}
+            pageSize={pageSize}
+            pageSizeOptions={[10, 20, 30]}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+          />
         </div>
       )}
     </div>

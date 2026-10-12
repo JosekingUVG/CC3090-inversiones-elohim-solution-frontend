@@ -53,7 +53,12 @@
     "no": "No",
     "close": "Close",
     "search": "Search",
-    "no_results": "No results found"
+    "no_results": "No results found",
+    "pagination_summary": "Showing {from}-{to} of {total}",
+    "pagination_page_size": "Rows per page",
+    "pagination_previous": "Previous",
+    "pagination_next": "Next",
+    "pagination_page_of": "Page {page} of {pages}"
   },
   "Sucursales": {
     "title": "Branches",
