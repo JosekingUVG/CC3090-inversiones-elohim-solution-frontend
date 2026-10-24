@@ -7,6 +7,16 @@ import { EstadoVacio, ErrorMessage } from "@/components/ui";
 
 export function ReservasShell() {
   const { reservaciones, isLoading, isError, error } = useHistorialCompras();
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 5;
+
+  const ordenadas = useMemo(() => {
+    return [...reservaciones].sort((a, b) => {
+      const ta = new Date(a.fechaLimiteRetiro).getTime();
+      const tb = new Date(b.fechaLimiteRetiro).getTime();
+      return tb - ta;
+    });
+  }, [reservaciones]);
 
   if (isLoading) {
     return (
@@ -33,17 +43,6 @@ export function ReservasShell() {
       />
     );
   }
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
-
-  const ordenadas = useMemo(() => {
-    return [...reservaciones].sort((a, b) => {
-      const ta = new Date(a.fechaLimiteRetiro).getTime();
-      const tb = new Date(b.fechaLimiteRetiro).getTime();
-      return tb - ta;
-    });
-  }, [reservaciones]);
 
   const totalPages = Math.max(1, Math.ceil(ordenadas.length / pageSize));
   const safePage = Math.min(Math.max(1, currentPage), totalPages);
